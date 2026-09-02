@@ -1,0 +1,94 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Quiz {
+  id            String         @id @default(uuid())
+  title         String
+  description   String?
+  slug          String         @unique
+  status        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  questions     Question[]
+  resultOptions ResultOption[]
+  sessions      QuizSession[]
+  analytics     AnalyticsEvent[]
+}
+
+model Question {
+  id      String   @id @default(uuid())
+  quizId  String
+  quiz    Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  text    String
+  image   String?
+  order   Int      @default(0)
+  answers Answer[]
+}
+
+model Answer {
+  id            String   @id @default(uuid())
+  questionId    String
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text          String
+  image         String?
+  score         Int      @default(0)
+  resultMapping Json     // E.g., {"WORDS_OF_AFFIRMATION": 5, "QUALITY_TIME": 2}
+}
+
+model ResultOption {
+  id              String        @id @default(uuid())
+  quizId          String
+  quiz            Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  code            String        // Category code (e.g. "WORDS_OF_AFFIRMATION")
+  title           String        // Name of recipe, e.g. "OMELET VALIDASI"
+  subTitle        String?       // Sub category name, e.g. "WORDS OF AFFIRMATION"
+  description     String
+  image           String        // Path/URL to the result visual image
+  backgroundColor String        @default("#E53E3E") // Hex color for card
+  ctaText         String        @default("COOK IT NOW")
+  ctaUrl          String?
+  sessions        QuizSession[]
+}
+
+model Participant {
+  id         String        @id @default(uuid())
+  name       String
+  phone      String
+  email      String?
+  consent    Boolean       @default(true)
+  newsletter Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  sessions   QuizSession[]
+}
+
+model QuizSession {
+  id            String           @id @default(uuid())
+  quizId        String
+  quiz          Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  participantId String?
+  participant   Participant?     @relation(fields: [participantId], references: [id])
+  answers       Json             // List of selected answer IDs: ["ans-uuid-1", "ans-uuid-2"]
+  resultId      String?
+  result        ResultOption?    @relation(fields: [resultId], references: [id])
+  token         String           @unique // Random short alphanumeric token for URL sharing (e.g., "7gH9sK")
+  createdAt     DateTime         @default(now())
+  completedAt   DateTime?
+  analytics     AnalyticsEvent[]
+}
+
+model AnalyticsEvent {
+  id        String       @id @default(uuid())
+  quizId    String
+  quiz      Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  sessionId String?
+  session   QuizSession? @relation(fields: [sessionId], references: [id])
+  eventType String       // "START", "ANSWER_SELECT", "COMPLETE", "DOWNLOAD", "SHARE_IG", "SHARE_WA", "QR_SCAN"
+  device    String?      // User device info
+  createdAt DateTime     @default(now())
+}

@@ -1,0 +1,37 @@
+{
+  "name": "fe-temp",
+  "version": "0.1.0",
+  "private": true,
+  "prisma": {
+    "seed": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts"
+  },
+  "scripts": {
+    "dev": "node node_modules/next/dist/bin/next dev",
+    "build": "node node_modules/next/dist/bin/next build",
+    "start": "node node_modules/next/dist/bin/next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "framer-motion": "^13.1.1",
+    "html-to-image": "^1.11.13",
+    "lottie-react": "^3.1.1",
+    "lucide-react": "^1.37.0",
+    "next": "^15.1.0",
+    "qrcode.react": "^4.2.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^15.1.0",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.13",
+    "typescript": "^5"
+  }
+}

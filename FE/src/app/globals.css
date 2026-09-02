@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Isidora';
+  src: url('/Font/Fonts/Isidora-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Isidora';
+  src: url('/Font/Fonts/Isidora-Black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: var(--font-isidora), 'Isidora', system-ui, -apple-system, sans-serif;
+  --font-isidora: var(--font-isidora), 'Isidora', sans-serif;
+}
+
+body {
+  background-color: #0b0f19;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom 3D button press effect */
+.btn-royco-yellow {
+  background-color: #FFC700;
+  color: #E50012;
+  box-shadow: 0 5px 0 #D49B00, 0 8px 12px rgba(0, 0, 0, 0.25);
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-royco-yellow:hover {
+  background-color: #FFD21A;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 0 #D49B00, 0 10px 15px rgba(0, 0, 0, 0.3);
+}
+
+.btn-royco-yellow:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #D49B00, 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Quiz Option Card styling */
+.quiz-option-card {
+  background-color: #FFC700;
+  color: #1a1a1a;
+  box-shadow: 0 4px 0 #D49B00, 0 6px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.15s ease;
+}
+
+.quiz-option-card:hover {
+  background-color: #FFD21A;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #D49B00, 0 10px 16px rgba(0, 0, 0, 0.25);
+}
+
+.quiz-option-card:active,
+.quiz-option-card.selected {
+  background-color: #ffffff;
+  color: #1a1a1a;
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #D49B00, 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.quiz-option-card.selected .quiz-option-letter {
+  background-color: #00A651;
+  color: #ffffff;
+}
+
+@keyframes panRock {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-8px) rotate(-6deg);
+  }
+  75% {
+    transform: translateY(-4px) rotate(6deg);
+  }
+}
+
+.animate-pan-beat {
+  animation: panRock 1.4s ease-in-out infinite;
+}
+
+@keyframes shadowPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  25% {
+    transform: scale(0.85);
+    opacity: 0.25;
+  }
+  75% {
+    transform: scale(0.9);
+    opacity: 0.3;
+  }
+}
+
+.animate-shadow-pulse {
+  animation: shadowPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
