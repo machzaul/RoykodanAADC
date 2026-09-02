@@ -309,9 +309,9 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
               <div className="flex-1 flex flex-col items-center justify-center my-auto pt-2">
                 <div className="relative flex flex-col items-center">
                   <img
-                    src="/ImageRef/telorhomepage.png"
-                    alt="Telur Cinta Royco"
-                    className="w-56 sm:w-64 h-auto object-contain drop-shadow-lg"
+                    src="/ImageRef/Teluromelete.png"
+                    alt="Telur Omelet Cinta Royco"
+                    className="w-56 sm:w-64 h-auto object-contain drop-shadow-xl"
                   />
                   <img
                     src="/ImageRef/shadow.png"
@@ -484,9 +484,9 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
                 {/* Egg Detective Mascot */}
                 <div className="relative flex flex-col items-center">
                   <img
-                    src="/ImageRef/telorpagereadyscene.png"
+                    src="/ImageRef/Teluromelete.png"
                     alt="Siap Kuis"
-                    className="w-56 sm:w-64 h-auto object-contain drop-shadow-lg"
+                    className="w-56 sm:w-64 h-auto object-contain drop-shadow-xl"
                   />
                   <img
                     src="/ImageRef/shadow.png"

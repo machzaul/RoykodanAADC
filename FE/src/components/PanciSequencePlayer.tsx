@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-const TOTAL_FRAMES = 91;
+const TOTAL_FRAMES = 90;
 const TARGET_FPS = 36; // Optimal frame rate for realistic, silky-smooth frying pan flip
 const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
@@ -79,11 +79,11 @@ export default function PanciSequencePlayer() {
   }, [ready]);
 
   return (
-    <div className="w-full max-w-[340px] sm:max-w-[380px] h-[200px] sm:h-[230px] flex items-center justify-center relative overflow-hidden">
+    <div className="w-64 sm:w-72 h-64 sm:h-72 flex items-center justify-center relative overflow-hidden mx-auto">
       <canvas
         ref={canvasRef}
-        width={1024}
-        height={576}
+        width={800}
+        height={800}
         className="w-full h-full object-contain pointer-events-none drop-shadow-xl"
       />
     </div>
