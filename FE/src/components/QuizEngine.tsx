@@ -148,9 +148,18 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(false);
   const [newsletter, setNewsletter] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [shakingFields, setShakingFields] = useState<Record<string, boolean>>({});
   const [sessionId, setSessionId] = useState('');
   const [sessionToken, setSessionToken] = useState('');
+
+  const triggerShake = (fields: string[]) => {
+    const newShake: Record<string, boolean> = {};
+    fields.forEach((f) => { newShake[f] = true; });
+    setShakingFields(newShake);
+    setTimeout(() => {
+      setShakingFields({});
+    }, 600);
+  };
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
@@ -198,15 +207,48 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
     setActiveField(null);
   }
   async function submitForm(event: React.FormEvent) {
-    event.preventDefault(); setFormError('');
-    if (!name.trim() || !phone.trim()) return setFormError('Nama dan nomor WhatsApp wajib diisi.');
-    if (!/^\d{8,16}$/.test(phone.replace(/[\s\-+]/g, ''))) return setFormError('Nomor WhatsApp tidak valid.');
-    if (!consent) return setFormError('Centang persetujuan data untuk lanjut.');
+    event.preventDefault();
+    const invalidFields: string[] = [];
+    if (!name.trim()) invalidFields.push('name');
+    const cleanPhone = phone.replace(/[\s\-+]/g, '');
+    if (!phone.trim() || !/^\d{8,16}$/.test(cleanPhone)) invalidFields.push('phone');
+    if (!consent) invalidFields.push('consent');
+
+    if (invalidFields.length > 0) {
+      triggerShake(invalidFields);
+      if (invalidFields.includes('name') && !activeField) {
+        openKeyboard('name');
+      } else if (invalidFields.includes('phone') && !activeField) {
+        openKeyboard('phone');
+      }
+      return;
+    }
+
     try {
-      const response = await fetch('/api/sessions/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), phone: phone.trim(), email: email.trim() || undefined, consent, newsletter, quizId: quiz?.id }) });
-      if (!response.ok) throw new Error('Gagal memulai sesi.');
-      const data = await response.json(); setSessionId(data.sessionId); setSessionToken(data.token); setActiveField(null); setFlowState('ready');
-    } catch (reason) { setFormError(reason instanceof Error ? reason.message : 'Gagal memulai kuis.'); }
+      const response = await fetch('/api/sessions/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim() || undefined,
+          consent,
+          newsletter,
+          quizId: quiz?.id,
+        }),
+      });
+      if (!response.ok) {
+        triggerShake(['name', 'phone']);
+        return;
+      }
+      const data = await response.json();
+      setSessionId(data.sessionId);
+      setSessionToken(data.token);
+      setActiveField(null);
+      setFlowState('ready');
+    } catch {
+      triggerShake(['name', 'phone']);
+    }
   }
   function beginQuiz() { setQuestionIndex(0); setAnswers({}); setSelectedLetter(null); setFlowState('quiz'); }
   function selectAnswer(questionId: string, answerId: string, letter: string) {
@@ -284,6 +326,7 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
     setPrintSuccess(false);
     setShowReceipt(false);
     setActiveField(null);
+    setShakingFields({});
   }
 
   if (loading || error || !quiz) return <main className="flow-shell flow-status"><Stripe /><div className="flow-status-message">{loading ? 'Memuat pengalaman…' : error || 'Pengalaman belum tersedia.'}</div><Stripe /></main>;
@@ -295,10 +338,12 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
     {flowState === 'form' && <div className="flow-view form-view">
       <div className="form-brand-crop"><img src="/ImageRef/brand-lockup.png" alt="Royco" /></div><p className="flow-eyebrow form-eyebrow">A ROYCO X AADC EXPERIENCE</p><h1 className="form-title">Kenalan dulu yuk</h1><p className="form-copy">Isi data kamu buat nerima kartu<br />cinta versi digital.</p>
       <form onSubmit={submitForm} className="lead-form">
-        <label>Nama<input value={name} readOnly inputMode="none" onFocus={() => openKeyboard('name')} onClick={() => openKeyboard('name')} placeholder="Nama kamu" /></label><label>Nomor WhatsApp<input value={phone} readOnly inputMode="none" onFocus={() => openKeyboard('phone')} onClick={() => openKeyboard('phone')} placeholder="08xxxxxxxxxx" /></label><label>Email<input value={email} readOnly inputMode="none" onFocus={() => openKeyboard('email')} onClick={() => openKeyboard('email')} type="email" placeholder="email@kamu.com" /></label>
-        <button type="button" className="consent-row" onClick={() => setConsent(!consent)}><span className={'fake-checkbox ' + (consent ? 'checked' : '')}>{consent && <Check />}</span><span>Aku setuju data ku dipakai Royco x AADC dan dihubungi terkait event ini.</span></button>
+        <label className={shakingFields.name ? 'field-shake' : ''}>Nama<input value={name} readOnly inputMode="none" onFocus={() => openKeyboard('name')} onClick={() => openKeyboard('name')} placeholder="Nama kamu" /></label>
+        <label className={shakingFields.phone ? 'field-shake' : ''}>Nomor WhatsApp<input value={phone} readOnly inputMode="none" onFocus={() => openKeyboard('phone')} onClick={() => openKeyboard('phone')} placeholder="08xxxxxxxxxx" /></label>
+        <label>Email<input value={email} readOnly inputMode="none" onFocus={() => openKeyboard('email')} onClick={() => openKeyboard('email')} type="email" placeholder="email@kamu.com" /></label>
+        <button type="button" className={`consent-row ${shakingFields.consent ? 'field-shake' : ''}`} onClick={() => setConsent(!consent)}><span className={'fake-checkbox ' + (consent ? 'checked' : '')}>{consent && <Check />}</span><span>Aku setuju data ku dipakai Royco x AADC dan dihubungi terkait event ini.</span></button>
         <button type="button" className="consent-row optional" onClick={() => setNewsletter(!newsletter)}><span className={'fake-checkbox ' + (newsletter ? 'checked' : '')}>{newsletter && <Check />}</span><span>Boleh kirim promo &amp; update dari Royco. <i>(opsional)</i></span></button>
-        {formError && <p className="form-error">{formError}</p>}<div className="form-cta"><PrimaryButton type="submit">Lanjut <b>→</b></PrimaryButton></div>
+        <div className="form-cta"><PrimaryButton type="submit">Lanjut <b>→</b></PrimaryButton></div>
       </form>
       {activeField && <VirtualKeyboard mode={keyboardMode} onKey={appendKeyboardKey} onModeChange={setKeyboardMode} onNext={advanceKeyboard} />}
     </div>}
