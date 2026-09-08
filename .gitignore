@@ -22,6 +22,11 @@ yarn-error.log*
 .env*.local
 .env
 
+# Database
+*.db
+*.db-journal
+dev.db
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -33,3 +38,6 @@ Thumbs.db
 # Typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Separate Standalone Backend Repository
+BE/

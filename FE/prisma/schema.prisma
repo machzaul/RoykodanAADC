@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -77,6 +77,9 @@ model QuizSession {
   resultId      String?
   result        ResultOption?    @relation(fields: [resultId], references: [id])
   token         String           @unique // Random short alphanumeric token for URL sharing (e.g., "7gH9sK")
+  queueNumber   Int?
+  isPrinted     Boolean          @default(false)
+  printedAt     DateTime?
   createdAt     DateTime         @default(now())
   completedAt   DateTime?
   analytics     AnalyticsEvent[]

@@ -40,7 +40,7 @@ export default function RootLayout({
     <html lang="id" className={`${isidora.variable} h-full antialiased font-sans`}>
       <body className="min-h-full flex flex-col bg-[#111827] text-white justify-center items-center overflow-x-hidden">
         {/* Full-screen wrapper ensuring mobile-first portrait ratio container on desktop */}
-        <main className="w-full min-h-screen flex items-center justify-center p-0 sm:py-6">
+        <main className="w-full min-h-screen flex items-center justify-center p-0">
           {children}
         </main>
       </body>

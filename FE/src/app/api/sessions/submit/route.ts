@@ -62,12 +62,30 @@ export async function POST(request: Request) {
     // 4. Calculate the winning result
     const winningResult = calculateResult(answers, resultOptions);
 
+    // Calculate sequential queueNumber for today
+    let queueNumber = session.queueNumber;
+    if (!queueNumber) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const lastSessionToday = await prisma.quizSession.findFirst({
+        where: {
+          queueNumber: { not: null },
+          createdAt: { gte: todayStart },
+        },
+        orderBy: { queueNumber: 'desc' },
+      });
+
+      queueNumber = (lastSessionToday?.queueNumber ?? 0) + 1;
+    }
+
     // 5. Update the QuizSession record
     const updatedSession = await prisma.quizSession.update({
       where: { id: sessionId },
       data: {
         answers: answerIds,
         resultId: winningResult.id,
+        queueNumber,
         completedAt: new Date(),
       },
       include: {
@@ -90,6 +108,8 @@ export async function POST(request: Request) {
       token: updatedSession.token,
       result: updatedSession.result,
       participant: updatedSession.participant,
+      queueNumber: updatedSession.queueNumber,
+      isPrinted: updatedSession.isPrinted,
     });
   } catch (error: any) {
     console.error('Error submitting quiz answers:', error);

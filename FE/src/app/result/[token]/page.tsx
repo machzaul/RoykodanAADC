@@ -2,28 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Loader2, Download, Share2, RotateCcw, Check } from 'lucide-react';
-
-interface SessionResult {
-  id: string;
-  token: string;
-  quizId: string;
-  participant: {
-    name: string;
-  } | null;
-  result: {
-    title: string;
-    subTitle: string | null;
-    description: string;
-    image: string;
-    backgroundColor: string;
-    ctaText: string;
-    ctaUrl: string | null;
-  };
-}
+import { Download, Share2, Check, Loader2 } from 'lucide-react';
+import { DefinedCard, getCardByIdOrSlug, DEFINED_CARDS } from '@/lib/cards';
 
 const ColorStripeBar = () => (
-  <div className="w-full h-2.5 flex shrink-0 overflow-hidden z-20">
+  <div className="w-full h-2 flex shrink-0 overflow-hidden z-20">
     <div className="flex-1 bg-[#00A3E0]" />
     <div className="flex-1 bg-[#00A651]" />
     <div className="flex-1 bg-[#38B6FF]" />
@@ -35,170 +18,229 @@ const ColorStripeBar = () => (
 export default function ResultSharingPage() {
   const params = useParams();
   const router = useRouter();
-  const token = params?.token as string;
+  const identifier = (params?.token as string) || '';
 
-  const [session, setSession] = useState<SessionResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [card, setCard] = useState<DefinedCard | null>(() => {
+    return getCardByIdOrSlug(identifier);
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    return !getCardByIdOrSlug(identifier);
+  });
+  const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Log scan event
+  // If identifier wasn't a static card slug/number, attempt to fetch via session token
   useEffect(() => {
-    if (token) {
-      fetch('/api/analytics/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, eventType: 'QR_SCAN' }),
-      }).catch((err) => console.error('Failed to log scan:', err));
+    const staticCard = getCardByIdOrSlug(identifier);
+    if (staticCard) {
+      setCard(staticCard);
+      setLoading(false);
+      return;
     }
-  }, [token]);
 
-  // Fetch session result
-  useEffect(() => {
-    if (!token) return;
+    if (!identifier) {
+      // Default to Acts of Service if no identifier provided
+      setCard(DEFINED_CARDS['1']);
+      setLoading(false);
+      return;
+    }
 
-    async function fetchResult() {
+    let isMounted = true;
+    async function fetchSession() {
       try {
-        const res = await fetch('/api/sessions/result/' + token);
+        setLoading(true);
+        const res = await fetch(`/api/sessions/result/${identifier}`);
         if (!res.ok) {
           throw new Error('Hasil kartu cinta tidak ditemukan.');
         }
         const data = await res.json();
-        setSession(data);
+        if (data?.result) {
+          const matched =
+            getCardByIdOrSlug(data.result.code) ||
+            getCardByIdOrSlug(data.result.title) || {
+              id: 1,
+              slug: 'acts-of-service',
+              code: data.result.code || 'ACTS_OF_SERVICE',
+              title: data.result.title || 'Acts of Service',
+              subTitle: data.result.subTitle || '',
+              description: data.result.description || '',
+              image: data.result.image || '/ImageRef/Cardresult/PNG/CARD-01.png',
+            };
+          if (isMounted) setCard(matched);
+        } else {
+          throw new Error('Data kartu kosong.');
+        }
       } catch (err: any) {
-        setError(err.message || 'Terjadi kesalahan saat memuat kartu.');
+        if (isMounted) setError(err.message || 'Gagal memuat kartu');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
-    fetchResult();
-  }, [token]);
+    fetchSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [identifier]);
+
+  // Log scan event for analytics
+  useEffect(() => {
+    if (identifier) {
+      fetch('/api/analytics/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: identifier, eventType: 'QR_SCAN' }),
+      }).catch(() => {});
+    }
+  }, [identifier]);
 
   const handleDownload = async () => {
-    if (!session?.result.image) return;
+    if (!card?.image) return;
     try {
-      const response = await fetch(session.result.image);
+      setDownloading(true);
+      const response = await fetch(card.image);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = 'Royco-Love-Language-' + (session.result.title || 'Card') + '.png';
+      link.download = `Royko-Love-Language-${card.title.replace(/\s+/g, '-')}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
-      window.open(session.result.image, '_blank');
+      // Fallback: open image in new window/tab for user to save
+      window.open(card.image, '_blank');
+    } finally {
+      setDownloading(false);
     }
   };
 
   const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareTitle = `Hasil Love Language: ${card?.title || 'Love Language'} - Royco x AADC`;
+    const shareText = `Love language masakan aku adalah "${card?.title}"! Yuk cari tahu bahasa cintamu di kuis Royco x AADC ❤️`;
+
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Hasil Love Language Royco x AADC',
-          text: 'Love Language-ku adalah ' + session?.result.title + '! Cari tahu love language masakanmu di Royco x AADC.',
-          url: window.location.href,
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
         });
-      } catch (e) {
-        // Ignored if cancelled
+      } catch (err) {
+        // Ignored if user dismissed share sheet
       }
     } else {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2200);
+      } catch (err) {
+        // Fallback prompt
+        window.prompt('Salin tautan ini untuk dibagikan:', shareUrl);
+      }
     }
   };
 
   if (loading) {
     return (
-      <div className="w-full max-w-[420px] min-h-[100dvh] sm:min-h-[820px] bg-[#E50012] flex flex-col items-center justify-center text-white p-6 rounded-none sm:rounded-[36px] shadow-2xl">
+      <div className="w-full min-h-[100dvh] bg-[#E50012] flex flex-col items-center justify-center text-white p-6">
         <Loader2 className="w-12 h-12 animate-spin text-[#FFC700]" />
-        <span className="mt-4 text-base font-black tracking-wider uppercase text-white">Memuat Kartu Cinta...</span>
+        <span className="mt-4 text-base font-black tracking-wider uppercase text-white">
+          Memuat Kartu Cinta...
+        </span>
       </div>
     );
   }
 
-  if (error || !session) {
+  if (error || !card) {
     return (
-      <div className="w-full max-w-[420px] min-h-[100dvh] sm:min-h-[820px] bg-[#E50012] flex flex-col items-center justify-center text-white p-6 rounded-none sm:rounded-[36px] shadow-2xl text-center">
+      <div className="w-full min-h-[100dvh] bg-[#E50012] flex flex-col items-center justify-center text-white p-6 text-center">
         <div className="text-5xl mb-4">🍳</div>
-        <h3 className="text-xl font-black uppercase text-white">Kartu Tidak Ditemukan</h3>
-        <p className="text-xs text-white/90 mt-2 max-w-xs">{error || 'Link ini sudah tidak berlaku atau salah.'}</p>
+        <h2 className="text-2xl font-black uppercase text-white">Kartu Tidak Ditemukan</h2>
+        <p className="text-sm text-white/90 mt-2 max-w-xs">{error || 'Link ini tidak valid.'}</p>
         <button
           onClick={() => router.push('/')}
-          className="mt-6 btn-royco-yellow font-black px-6 py-2.5 rounded-full text-sm uppercase cursor-pointer"
+          className="mt-6 bg-[#FFC700] text-[#151515] font-black px-6 py-3 rounded-full text-sm uppercase cursor-pointer shadow-lg"
         >
-          Mulai Kuis Baru
+          Ikuti Kuis Sekarang
         </button>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full max-w-[430px] min-h-[100dvh] sm:min-h-[844px] bg-[#E50012] text-white flex flex-col justify-between overflow-hidden sm:rounded-[36px] shadow-2xl select-none font-sans">
+    <main className="w-full min-h-[100dvh] bg-[#E50012] text-white flex flex-col justify-between selection:bg-[#FFC700] selection:text-[#151515]">
+      {/* Top Accent Strip */}
       <ColorStripeBar />
 
-      <div className="flex-1 flex flex-col justify-between px-5 py-3 text-center">
-        <div>
-          <span className="text-[#FFC700] text-[12px] sm:text-[13px] font-black tracking-widest uppercase block mt-1 mb-2">
-            HASIL LOVE LANGUAGE KAMU
-          </span>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6 w-full max-w-[430px] mx-auto text-center">
+        {/* Header Titles matching reference */}
+        <h1 className="text-[28px] sm:text-[32px] font-black tracking-tight text-white flex items-center justify-center gap-2 drop-shadow-sm leading-tight">
+          Love Language Kamu <span className="text-[26px]">💕</span>
+        </h1>
+        <p className="text-[14px] sm:text-[15px] font-semibold text-white/95 mt-2 leading-snug px-2">
+          Yuk simpan hasilnya dan bagikan ke orang tersayang!
+        </p>
 
-          {/* Love Language Card */}
-          <div className="w-full max-w-[320px] mx-auto rounded-[22px] overflow-hidden shadow-xl border-2 border-white/20 bg-[#E50012]">
-            <img
-              src={session.result.image}
-              alt={session.result.title}
-              className="w-full h-auto object-cover max-h-[380px] sm:max-h-[410px]"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="mt-4 space-y-2.5 max-w-[320px] mx-auto">
-            {/* Download Button */}
-            <button
-              onClick={handleDownload}
-              className="w-full btn-royco-yellow font-black text-[15.5px] py-3 px-6 rounded-full flex items-center justify-center gap-2 cursor-pointer shadow-md"
-            >
-              <Download className="w-4 h-4 stroke-[2.5]" />
-              <span>Simpan Gambar Kartu</span>
-            </button>
-
-            {/* Share Button */}
-            <button
-              onClick={handleShare}
-              className="w-full bg-[#FFF5E5] hover:bg-[#FFEED2] text-[#E50012] font-black text-[15px] py-3 px-6 rounded-full flex items-center justify-center gap-2 shadow-md cursor-pointer transition-colors"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-green-600 stroke-[3]" />
-                  <span className="text-green-700">Link Tersalin!</span>
-                </>
-              ) : (
-                <>
-                  <Share2 className="w-4 h-4 stroke-[2.5]" />
-                  <span>Bagikan ke Teman / Sosmed</span>
-                </>
-              )}
-            </button>
-          </div>
+        {/* High-Resolution Love Language Card */}
+        <div className="w-full mt-5 rounded-[22px] overflow-hidden shadow-2xl border border-white/20 bg-[#E50012]">
+          <img
+            src={card.image}
+            alt={card.title}
+            className="w-full h-auto block select-none pointer-events-none"
+            draggable={false}
+          />
         </div>
 
-        {/* Start own quiz button */}
-        <div className="pt-2 pb-1">
+        {/* Action Buttons */}
+        <div className="mt-5 w-full flex flex-col gap-3">
+          {/* Download Button */}
           <button
-            onClick={() => router.push('/')}
-            className="inline-flex items-center justify-center gap-1.5 text-white font-black text-[13.5px] hover:text-[#FFC700] transition-colors cursor-pointer underline underline-offset-4"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="w-full bg-[#FFC700] hover:bg-[#FFD12E] active:scale-[0.98] text-[#151515] font-black text-[16px] py-3.5 px-6 rounded-full flex items-center justify-center gap-2.5 shadow-lg cursor-pointer transition-all uppercase tracking-wide disabled:opacity-80"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Mau Ikut Kuis Ini Juga?</span>
+            <Download className="w-5 h-5 stroke-[2.8]" />
+            <span>{downloading ? 'Mengunduh...' : 'Download Hasil Kartu'}</span>
+          </button>
+
+          {/* Share Button */}
+          <button
+            onClick={handleShare}
+            className="w-full bg-white hover:bg-neutral-100 active:scale-[0.98] text-[#E50012] font-black text-[16px] py-3.5 px-6 rounded-full flex items-center justify-center gap-2.5 shadow-lg cursor-pointer transition-all uppercase tracking-wide"
+          >
+            {copied ? (
+              <>
+                <Check className="w-5 h-5 text-green-600 stroke-[3]" />
+                <span className="text-green-700">Link Tersalin!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-5 h-5 stroke-[2.8]" />
+                <span>Bagikan Ke Orang Tersayang</span>
+              </>
+            )}
           </button>
         </div>
+
+        {/* Footer Brand Copyright */}
+        <footer className="mt-7 mb-2 text-center">
+          <p className="text-[12.5px] font-black uppercase tracking-wider text-white flex items-center justify-center gap-1.5 opacity-95">
+            ROYCO x AADC Experience <span className="text-white text-[12px]">❤</span>
+          </p>
+          <p className="text-[11px] font-medium text-white/75 mt-1">
+            Copyright © 2026. All rights reserved.
+          </p>
+        </footer>
       </div>
 
+      {/* Bottom Accent Strip */}
       <ColorStripeBar />
-    </div>
+    </main>
   );
 }
