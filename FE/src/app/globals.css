@@ -13,8 +13,9 @@ button { -webkit-tap-highlight-color:transparent; }
 .flow-view { position:absolute; inset:0; overflow:hidden; animation:flow-in .28s ease-out both; }
 .flow-stripe { display:block; width:100%; height:2.4cqw; min-height:5px; flex:none; object-fit:fill; z-index:2; }
 .flow-eyebrow { margin:0; width:100%; color:var(--yellow); text-align:center; font-size:2.28cqw; line-height:1; letter-spacing:.14em; font-weight:900; }
-.flow-primary-button { display:inline-flex; align-items:center; justify-content:center; gap:1cqw; width:37.9cqw; height:8.35cqw; border:0; border-radius:3.4cqw; color:var(--red); background:var(--yellow); box-shadow:0 1.3cqw 0 var(--yellow-shadow); font-size:4.2cqw; font-weight:900; line-height:1; cursor:pointer; transition:transform .14s ease,box-shadow .14s ease; }
-.flow-primary-button:active { transform:translateY(.7cqw); box-shadow:0 .6cqw 0 var(--yellow-shadow); }
+.flow-primary-button { display:inline-flex; align-items:center; justify-content:center; gap:1cqw; width:37.9cqw; height:8.35cqw; border:0; border-radius:3.4cqw; color:var(--red); background:var(--yellow); box-shadow:0 1.3cqw 0 var(--yellow-shadow); font-size:4.2cqw; font-weight:900; line-height:1; cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:manipulation; transition:transform .12s cubic-bezier(0.2,0,0,1),box-shadow .12s cubic-bezier(0.2,0,0,1),filter .12s ease; }
+.flow-primary-button:hover { filter:brightness(1.02); }
+.flow-primary-button:active, .flow-primary-button.pressed { transform:translateY(.9cqw); box-shadow:0 .4cqw 0 var(--yellow-shadow); filter:brightness(0.96); }
 
 /* Intro coordinates follow the 1080 × 1920 reference canvas. */
 .intro-lockup { position:absolute; top:4.1%; left:0; width:100%; height:auto; }
@@ -37,9 +38,10 @@ button { -webkit-tap-highlight-color:transparent; }
 .consent-row { display:flex; width:100%; margin:1.98cqw 0 0; padding:0; border:0; background:transparent; color:#fff; text-align:left; font-size:2.65cqw; line-height:1.32; font-weight:600; cursor:pointer; }
 .consent-row.optional { margin-top:2.05cqw; }
 .consent-row i { color:#ffa7a7; font-style:normal; }
-.fake-checkbox { display:inline-flex; align-items:center; justify-content:center; width:5.55cqw; height:5.55cqw; margin:.12cqw 3.05cqw 0 .75cqw; flex:none; border:.5cqw solid #fff; border-radius:1.55cqw; }
-.fake-checkbox.checked { color:var(--red); background:#fff; }
-.fake-checkbox svg { width:3.7cqw; height:3.7cqw; stroke-width:3; }
+.fake-checkbox { display:inline-flex; align-items:center; justify-content:center; width:5.55cqw; height:5.55cqw; margin:.12cqw 3.05cqw 0 .75cqw; flex:none; border:.5cqw solid #fff; border-radius:1.6cqw; background:transparent; transition:all .15s ease; }
+.fake-checkbox:active { transform:scale(0.92); }
+.fake-checkbox.checked { color:var(--red); background:var(--yellow); border-color:var(--yellow); box-shadow:0 .35cqw 0 var(--yellow-shadow); }
+.fake-checkbox svg { width:3.9cqw; height:3.9cqw; stroke:var(--red); stroke-width:4; }
 .form-error { margin:1.5cqw 0 0; text-align:center; color:var(--yellow); font-size:2cqw; font-weight:900; }
 .form-cta { margin-top:6.8cqw; text-align:center; position:relative; z-index:5; }
 

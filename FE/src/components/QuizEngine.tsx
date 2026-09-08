@@ -27,11 +27,19 @@ function PrimaryButton({
   type?: 'button' | 'submit';
   className?: string;
 }) {
+  const [isPressed, setIsPressed] = useState(false);
+
   return (
     <button
       type={type}
       onClick={onClick}
-      className={`flow-primary-button ${className}`}
+      onMouseDown={() => setIsPressed(true)}
+      onMouseUp={() => setIsPressed(false)}
+      onMouseLeave={() => setIsPressed(false)}
+      onTouchStart={() => setIsPressed(true)}
+      onTouchEnd={() => setIsPressed(false)}
+      onTouchCancel={() => setIsPressed(false)}
+      className={`flow-primary-button ${isPressed ? 'pressed' : ''} ${className}`}
     >
       {children}
     </button>
