@@ -371,3 +371,112 @@ export async function updatePrintStatusInExcel(
     return false;
   }
 }
+
+/**
+ * Mengambil informasi statistik file Excel peserta
+ */
+export async function getExcelStats(): Promise<{
+  exists: boolean;
+  totalRows: number;
+  filePath: string;
+  fileSize: string;
+  lastModified: string | null;
+}> {
+  ensureDataDir();
+  if (!fs.existsSync(EXCEL_FILE_PATH)) {
+    return {
+      exists: false,
+      totalRows: 0,
+      filePath: 'FE/data/peserta_kuis.xlsx',
+      fileSize: '0 KB',
+      lastModified: null,
+    };
+  }
+
+  try {
+    const stats = fs.statSync(EXCEL_FILE_PATH);
+    const sizeKb = (stats.size / 1024).toFixed(1) + ' KB';
+    const lastModified = formatDateTime(stats.mtime);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(EXCEL_FILE_PATH);
+    const worksheet = workbook.getWorksheet('Data Pengunjung') || workbook.worksheets[0];
+    const totalRows = worksheet ? Math.max(0, worksheet.rowCount - 1) : 0;
+
+    return {
+      exists: true,
+      totalRows,
+      filePath: 'FE/data/peserta_kuis.xlsx',
+      fileSize: sizeKb,
+      lastModified,
+    };
+  } catch (err) {
+    return {
+      exists: true,
+      totalRows: 0,
+      filePath: 'FE/data/peserta_kuis.xlsx',
+      fileSize: '0 KB',
+      lastModified: null,
+    };
+  }
+}
+
+/**
+ * Menghapus seluruh data peserta di file Excel (mereset ke template kosong hanya header)
+ */
+export async function clearAllExcelData(): Promise<{ success: boolean; countDeleted: number }> {
+  ensureDataDir();
+  let countDeleted = 0;
+
+  if (fs.existsSync(EXCEL_FILE_PATH)) {
+    try {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.readFile(EXCEL_FILE_PATH);
+      const ws = wb.getWorksheet('Data Pengunjung') || wb.worksheets[0];
+      if (ws) {
+        countDeleted = Math.max(0, ws.rowCount - 1);
+      }
+    } catch (e) {
+      console.warn('Error reading row count before clear:', e);
+    }
+  }
+
+  // Buat workbook baru yang bersih hanya dengan header
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Data Pengunjung');
+  setupWorksheet(worksheet);
+  await writeWorkbookSafe(workbook, EXCEL_FILE_PATH);
+
+  // Bersihkan file backup jika ada
+  try {
+    const dir = path.dirname(EXCEL_FILE_PATH);
+    const files = fs.readdirSync(dir);
+    for (const f of files) {
+      if (f.startsWith('peserta_kuis_backup_') && f.endsWith('.xlsx')) {
+        fs.unlinkSync(path.join(dir, f));
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal menghapus file backup excel:', err);
+  }
+
+  // Reset in-memory cache hitungan kartu ke 0
+  globalCardCounts.__cardCountsCache = {
+    'acts-of-service': 0,
+    'quality-time': 0,
+    'physical-touch': 0,
+    'receiving-gifts': 0,
+    'words-of-affirmation': 0,
+  };
+
+  // Bersihkan sessions map in-memory
+  try {
+    const { sessionsMap } = await import('./session-store');
+    sessionsMap.clear();
+  } catch {
+    // Abaikan jika import gagal
+  }
+
+  return { success: true, countDeleted };
+}
+

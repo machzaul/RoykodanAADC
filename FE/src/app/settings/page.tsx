@@ -13,6 +13,11 @@ import {
   ExternalLink,
   FileSpreadsheet,
   RefreshCw,
+  Trash2,
+  AlertTriangle,
+  Users,
+  Database,
+  X,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -81,9 +86,11 @@ const CARD_METADATA: Record<string, { title: string; image: string; color: strin
 };
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'quiz' | 'cards'>('quiz');
+  const [activeTab, setActiveTab] = useState<'quiz' | 'cards' | 'data'>('quiz');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isClearingData, setIsClearingData] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // States
@@ -92,6 +99,12 @@ export default function SettingsPage() {
     onlineBaseUrl: 'https://royko-aadc.vercel.app',
     cards: {},
   });
+  const [excelStats, setExcelStats] = useState<{
+    totalRows: number;
+    filePath: string;
+    fileSize: string;
+    lastModified: string | null;
+  } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -105,9 +118,10 @@ export default function SettingsPage() {
   const loadAllData = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      const [quizRes, cardsRes] = await Promise.all([
+      const [quizRes, cardsRes, dataRes] = await Promise.all([
         fetch('/api/config/quiz'),
         fetch(`/api/config/cards${forceRefresh ? '?refresh=true' : ''}`),
+        fetch('/api/config/data'),
       ]);
 
       if (quizRes.ok) {
@@ -118,11 +132,31 @@ export default function SettingsPage() {
         const cData = await cardsRes.json();
         setCardsConfig(cData);
       }
+      if (dataRes.ok) {
+        const dData = await dataRes.json();
+        if (dData?.stats) setExcelStats(dData.stats);
+      }
     } catch (err) {
       console.error(err);
       showToast('Gagal memuat konfigurasi dari lokal', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearExcelData = async () => {
+    setIsClearingData(true);
+    try {
+      const res = await fetch('/api/config/data', { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal menghapus data Excel');
+      showToast(data.message || 'Semua data Excel berhasil dihapus!', 'success');
+      setShowConfirmDeleteModal(false);
+      await loadAllData(true);
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menghapus data', 'error');
+    } finally {
+      setIsClearingData(false);
     }
   };
 
@@ -248,14 +282,25 @@ export default function SettingsPage() {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <button
-              onClick={activeTab === 'quiz' ? handleSaveQuiz : handleSaveCards}
-              disabled={saving || loading}
-              className="inline-flex items-center gap-2 bg-[#E50012] hover:bg-[#CC0010] active:scale-95 text-white font-extrabold text-xs sm:text-sm px-4 py-2 rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>{saving ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
-            </button>
+            {activeTab !== 'data' ? (
+              <button
+                onClick={activeTab === 'quiz' ? handleSaveQuiz : handleSaveCards}
+                disabled={saving || loading}
+                className="inline-flex items-center gap-2 bg-[#E50012] hover:bg-[#CC0010] active:scale-95 text-white font-extrabold text-xs sm:text-sm px-4 py-2 rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>{saving ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => loadAllData(true)}
+                disabled={loading}
+                className="inline-flex items-center gap-2 bg-neutral-800 hover:bg-neutral-900 active:scale-95 text-white font-extrabold text-xs sm:text-sm px-4 py-2 rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh Data Excel</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -273,12 +318,12 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center gap-2 font-mono text-[11px] text-amber-800 bg-amber-100 px-3 py-1 rounded-lg shrink-0">
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Excel: FE/data/peserta_kuis.xlsx</span>
+            <span>Excel: {excelStats?.totalRows ?? 0} Peserta ({excelStats?.fileSize ?? '0 KB'})</span>
           </div>
         </div>
 
         {/* Tab Selection */}
-        <div className="flex items-center gap-2 p-1.5 bg-neutral-200/70 rounded-2xl max-w-md mb-8">
+        <div className="flex items-center gap-2 p-1.5 bg-neutral-200/70 rounded-2xl max-w-xl mb-8">
           <button
             onClick={() => setActiveTab('quiz')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
@@ -288,7 +333,7 @@ export default function SettingsPage() {
             }`}
           >
             <ListChecks className="w-4 h-4 text-[#E50012]" />
-            <span>Teks Pertanyaan &amp; Opsi</span>
+            <span>Teks Kuis</span>
           </button>
           <button
             onClick={() => setActiveTab('cards')}
@@ -299,7 +344,18 @@ export default function SettingsPage() {
             }`}
           >
             <QrCode className="w-4 h-4 text-[#E50012]" />
-            <span>URL QR &amp; Kuota Kartu</span>
+            <span>URL &amp; Kuota</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('data')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
+              activeTab === 'data'
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            <Database className="w-4 h-4 text-[#E50012]" />
+            <span>Data Peserta &amp; Excel</span>
           </button>
         </div>
 
@@ -396,7 +452,7 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'cards' ? (
           /* TAB 2: PENGATURAN URL QR & KUOTA KARTU */
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -591,8 +647,170 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+        ) : (
+          /* TAB 3: MANAJEMEN DATA PESERTA & EXCEL */
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-black text-neutral-900 tracking-tight">
+                  Manajemen Data Peserta Kuis (Excel)
+                </h2>
+                <p className="text-xs text-neutral-500 font-medium mt-0.5">
+                  Pantau statistik berkas Excel peserta, status kuota kartu, serta hapus / reset seluruh data untuk event baru.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => loadAllData(true)}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-800 text-xs font-bold shadow-xs transition-colors shrink-0 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-neutral-600 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh Statistik</span>
+              </button>
+            </div>
+
+            {/* Statistik Kartu Excel */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-neutral-500">Total Peserta</span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <Users className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-neutral-900">{excelStats?.totalRows ?? 0}</span>
+                  <span className="text-xs font-bold text-neutral-400">orang terdaftar</span>
+                </div>
+                <p className="text-[11px] text-neutral-500 mt-1">Baris data yang tercatat di file Excel</p>
+              </div>
+
+              <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-neutral-500">Ukuran File</span>
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-neutral-900">{excelStats?.fileSize ?? '0 KB'}</span>
+                </div>
+                <p className="text-[11px] text-neutral-500 mt-1 font-mono truncate">{excelStats?.filePath || 'FE/data/peserta_kuis.xlsx'}</p>
+              </div>
+
+              <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-neutral-500">Terakhir Update</span>
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <RefreshCw className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-sm font-black text-neutral-800">{excelStats?.lastModified || 'Belum ada data'}</span>
+                </div>
+                <p className="text-[11px] text-neutral-500 mt-1">Otomatis sinkron saat kuis diselesaikan</p>
+              </div>
+            </div>
+
+            {/* Rincian Kartu yang Sudah Terpakai */}
+            <div className="bg-white border border-neutral-200 rounded-2xl p-5 sm:p-6 shadow-xs">
+              <h3 className="text-xs font-black uppercase tracking-wider text-neutral-700 mb-4">
+                Distribusi Kartu yang Telah Dikeluarkan (Status Terkini):
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                {Object.entries(CARD_METADATA).map(([slug, meta]) => {
+                  const count = cardsConfig.counts?.[slug] || 0;
+                  const maxQuota = cardsConfig.cards?.[slug]?.maxQuota || 100;
+                  return (
+                    <div key={slug} className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-center">
+                      <div className="text-[11px] font-extrabold text-neutral-700 truncate">{meta.title}</div>
+                      <div className="text-xl font-black text-neutral-900 mt-1">{count}</div>
+                      <div className="text-[10px] text-neutral-400 font-semibold">dari maks {maxQuota}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Danger Zone: Hapus Seluruh Data Excel */}
+            <div className="border border-red-200 bg-red-50/60 rounded-2xl p-5 sm:p-6 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-black text-red-900 uppercase tracking-tight">
+                    Zona Berbahaya: Hapus Semua Data Excel
+                  </h3>
+                  <p className="text-xs text-red-700 mt-1 leading-relaxed">
+                    Tindakan ini akan <b>menghapus seluruh baris data peserta</b> di dalam file <code className="bg-red-100 px-1 py-0.5 rounded font-mono font-bold">FE/data/peserta_kuis.xlsx</code> (mereset file ke template awal kosong).
+                    Nomor antrean harian dan hitungan kuota kartu otomatis direset kembali ke 0.
+                  </p>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmDeleteModal(true)}
+                      className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Hapus Semua Data Excel Sekarang</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
+
+      {/* Modal Konfirmasi Hapus Data */}
+      {showConfirmDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-neutral-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-black text-center text-neutral-900 tracking-tight">
+              Hapus Semua Data Peserta?
+            </h3>
+            <p className="text-xs text-neutral-600 text-center mt-2 leading-relaxed">
+              Anda akan menghapus <span className="font-bold text-red-600">{excelStats?.totalRows || 0} baris data peserta</span> yang tersimpan di file <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono">peserta_kuis.xlsx</code>.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 my-4 text-[11px] text-amber-800 font-medium">
+              ⚠️ <b>Peringatan:</b> Tindakan ini tidak dapat dibatalkan. Kuota seluruh kartu (100) dan nomor antrian akan direset kembali dari awal.
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowConfirmDeleteModal(false)}
+                disabled={isClearingData}
+                className="flex-1 py-3 px-4 rounded-xl border border-neutral-300 text-neutral-700 font-bold text-xs hover:bg-neutral-50 active:scale-95 transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleClearExcelData}
+                disabled={isClearingData}
+                className="flex-1 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isClearingData ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Ya, Hapus Semua</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
