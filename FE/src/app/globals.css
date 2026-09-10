@@ -33,15 +33,15 @@ button { -webkit-tap-highlight-color:transparent; }
 .form-brand-crop img { display:block; width:100%; max-width:none; height:auto; }
 .form-eyebrow { position:absolute; top:13.7%; font-size:2.14cqw; letter-spacing:.1em; }
 .form-title { position:absolute; top:18.15%; width:100%; margin:0; text-align:center; font-size:8.1cqw; font-weight:900; line-height:1.05; letter-spacing:-.01em; }
-.form-copy { position:absolute; top:24.25%; width:100%; margin:0; text-align:center; font-size:3.4cqw; line-height:1.32; font-weight:400; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing:0.01em; }
+.form-copy { position:absolute; top:24.25%; width:100%; margin:0; text-align:center; font-size:3.4cqw; line-height:1.32; font-weight:600; letter-spacing:0.01em; }
 .lead-form { position:absolute; top:33.35%; left:8.33%; width:83.34%; }
 .lead-form label { display:block; margin:0 0 2.22cqw; color:var(--yellow); font-size:3.27cqw; font-weight:900; line-height:1; letter-spacing:0.035em; }
 .lead-form input { display:block; width:100%; height:10.3cqw; margin-top:1.42cqw; padding:0 3.98cqw; border:0; border-radius:2.5cqw; outline:0; color:var(--ink); background:#f9f9f9; font-size:3.36cqw; font-weight:600; letter-spacing:0.025em; }
 .lead-form input::placeholder { color:#a7a7a7; opacity:1; font-weight:600; }
-.consent-row { display:flex; align-items:flex-start; width:100%; margin:1.98cqw 0 0; padding:0; border:0; background:transparent; color:#fff; text-align:left; font-size:2.65cqw; line-height:1.35; font-weight:400; font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; cursor:pointer; }
-.consent-row span:not(.fake-checkbox) { font-weight:400; }
+.consent-row { display:flex; align-items:flex-start; width:100%; margin:1.98cqw 0 0; padding:0; border:0; background:transparent; color:#fff; text-align:left; font-size:2.65cqw; line-height:1.35; font-weight:600; cursor:pointer; }
+.consent-row span:not(.fake-checkbox) { font-weight:600; }
 .consent-row.optional { margin-top:2.05cqw; }
-.consent-row i { color:#ffa7a7; font-style:normal; font-weight:400; }
+.consent-row i { color:#ffa7a7; font-style:normal; font-weight:600; }
 .fake-checkbox { display:inline-flex; align-items:center; justify-content:center; width:5.55cqw; height:5.55cqw; margin:.12cqw 3.05cqw 0 .75cqw; flex:none; border:.5cqw solid #fff; border-radius:1.6cqw; background:transparent; transition:all .15s ease; }
 .fake-checkbox:active { transform:scale(0.92); }
 .fake-checkbox.checked { color:var(--red); background:var(--yellow); border-color:var(--yellow); box-shadow:0 .35cqw 0 var(--yellow-shadow); }

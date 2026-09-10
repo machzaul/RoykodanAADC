@@ -480,7 +480,7 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
           <div className="slip-time">{`[${String(new Date().getHours()).padStart(2, '0')}.${String(new Date().getMinutes()).padStart(2, '0')}]`}</div>
         </div>
         <p className="receipt-note">Tukarkan struk ini di booth Royco untuk 1 omelette spesial.</p>
-        <button onClick={() => { playButtonSound(); setShowReceipt(false); }}>Selesai</button>
+        <button onClick={() => { playButtonSound(); setShowReceipt(false); }}>Oke</button>
       </div>
     </div>
   )}
