@@ -1,5 +1,5 @@
 {
-  "onlineBaseUrl": "https://royko-aadc.vercel.app",
+  "onlineBaseUrl": "https://royco-be.vercel.app",
   "defaultMaxQuota": 100,
   "notes": "Jika customQrUrl diisi, QR code untuk kartu tersebut akan langsung mengarah ke URL tersebut. Jika dikosongkan, otomatis menggunakan onlineBaseUrl + /result/[slug-kartu]. maxQuota mengatur batas maksimal kartu keluar (default 100).",
   "cards": {
