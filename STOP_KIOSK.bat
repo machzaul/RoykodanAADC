@@ -13,7 +13,7 @@ set "STOPPED=0"
 set "PORT_LOG=%TEMP%\royko_ports.txt"
 
 netstat -ano > "!PORT_LOG!" 2>nul
-for /f "tokens=5" %%p in ('type "!PORT_LOG!" 2^>nul ^| findstr ":3000"') do (
+for /f "tokens=5" %%p in ('type "!PORT_LOG!" 2^>nul ^| findstr /R ":3000.*LISTENING"') do (
     if "%%p" NEQ "0" (
         echo Menutup proses server PID %%p
         taskkill /F /PID %%p >nul 2>&1

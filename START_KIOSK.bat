@@ -62,40 +62,40 @@ if exist "%VBS_AUTOSTART%" del "%VBS_AUTOSTART%" >nul 2>&1
 echo [OK] Autostart aktif: Kiosk otomatis berjalan saat Mini PC dihidupkan.
 echo.
 
-:: 4. Cek apakah Server Kiosk di port 3000 sudah berjalan
-set "SERVER_RUNNING=0"
+:: 4. Membersihkan port 3000 dari proses lama & Jalankan Server Kiosk Fresh
+echo [1/3] Memeriksa dan membebaskan port 3000 dari proses sebelumnya...
 set "PORT_CHECK_LOG=%TEMP%\royko_start_check.txt"
 netstat -ano > "!PORT_CHECK_LOG!" 2>nul
-for /f "tokens=5" %%a in ('type "!PORT_CHECK_LOG!" 2^>nul ^| findstr ":3000"') do (
-    set "SERVER_RUNNING=1"
+for /f "tokens=5" %%p in ('type "!PORT_CHECK_LOG!" 2^>nul ^| findstr /R ":3000.*LISTENING"') do (
+    if "%%p" NEQ "0" (
+        echo [INFO] Menutup proses lama di port 3000 PID %%p
+        taskkill /F /PID %%p >nul 2>&1
+    )
 )
 if exist "!PORT_CHECK_LOG!" del "!PORT_CHECK_LOG!" >nul 2>&1
+ping -n 2 127.0.0.1 >nul
 
-if "!SERVER_RUNNING!"=="1" (
-    echo [OK] Server Kiosk sudah aktif di port 3000.
-) else (
-    echo [1/3] Menjalankan Server Kiosk di background...
-    cd /d "!FE_DIR!"
-    start "Royko Kiosk Server" /min cmd /c "node node_modules\next\dist\bin\next dev -p 3000"
+echo [INFO] Menjalankan Server Kiosk baru di background...
+cd /d "!FE_DIR!"
+start "Royko Kiosk Server" /min cmd /k "node node_modules\next\dist\bin\next dev -p 3000"
 
-    echo [2/3] Menunggu server siap merespon di port 3000...
-    set /a RETRIES=0
-    :wait_server_loop
-    set /a RETRIES+=1
-    ping -n 2 127.0.0.1 >nul
-    set "PORT_READY=0"
-    netstat -ano > "!PORT_CHECK_LOG!" 2>nul
-    for /f "tokens=5" %%b in ('type "!PORT_CHECK_LOG!" 2^>nul ^| findstr ":3000"') do (
-        set "PORT_READY=1"
-    )
-    if exist "!PORT_CHECK_LOG!" del "!PORT_CHECK_LOG!" >nul 2>&1
-    if "!PORT_READY!"=="0" (
-        if !RETRIES! LSS 45 (
-            goto wait_server_loop
-        )
-    )
-    echo [OK] Server Kiosk siap!
+echo [2/3] Menunggu server siap merespon di port 3000...
+set /a RETRIES=0
+:wait_server_loop
+set /a RETRIES+=1
+ping -n 2 127.0.0.1 >nul
+set "PORT_READY=0"
+netstat -ano > "!PORT_CHECK_LOG!" 2>nul
+for /f "tokens=5" %%b in ('type "!PORT_CHECK_LOG!" 2^>nul ^| findstr /R ":3000.*LISTENING"') do (
+    set "PORT_READY=1"
 )
+if exist "!PORT_CHECK_LOG!" del "!PORT_CHECK_LOG!" >nul 2>&1
+if "!PORT_READY!"=="0" (
+    if !RETRIES! LSS 45 (
+        goto wait_server_loop
+    )
+)
+echo [OK] Server Kiosk siap!
 
 :: 5. Buka Browser Layar Kiosk dalam Mode Fullscreen
 set "KIOSK_URL=http://localhost:3000"
@@ -105,26 +105,26 @@ echo [3/3] Membuka layar Kiosk interaktif...
 
 :: Cek Microsoft Edge 32/64 bit
 if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" (
-    start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --kiosk "%KIOSK_URL%" --edge-kiosk-type=fullscreen --no-first-run
+    start "" "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe" --kiosk "%KIOSK_URL%" --edge-kiosk-type=fullscreen --no-first-run --user-data-dir="%TEMP%\kiosk_edge_profile"
     set "BROWSER_OPENED=1"
     goto browser_ready
 )
 
 if exist "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" (
-    start "" "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" --kiosk "%KIOSK_URL%" --edge-kiosk-type=fullscreen --no-first-run
+    start "" "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe" --kiosk "%KIOSK_URL%" --edge-kiosk-type=fullscreen --no-first-run --user-data-dir="%TEMP%\kiosk_edge_profile"
     set "BROWSER_OPENED=1"
     goto browser_ready
 )
 
 :: Cek Google Chrome
 if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
-    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --kiosk "%KIOSK_URL%" --no-first-run
+    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" --kiosk "%KIOSK_URL%" --no-first-run --user-data-dir="%TEMP%\kiosk_chrome_profile"
     set "BROWSER_OPENED=1"
     goto browser_ready
 )
 
 if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" (
-    start "" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" --kiosk "%KIOSK_URL%" --no-first-run
+    start "" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" --kiosk "%KIOSK_URL%" --no-first-run --user-data-dir="%TEMP%\kiosk_chrome_profile"
     set "BROWSER_OPENED=1"
     goto browser_ready
 )
