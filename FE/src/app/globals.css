@@ -59,14 +59,6 @@ button { -webkit-tap-highlight-color:transparent; }
   animation: shake-vibrate 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
   will-change: transform;
 }
-.field-shake input {
-  border: 0.38cqw solid var(--yellow) !important;
-  box-shadow: 0 0 0 0.5cqw rgba(255, 202, 25, 0.45) !important;
-}
-.consent-row.field-shake .fake-checkbox {
-  border-color: var(--yellow) !important;
-  box-shadow: 0 0 0 0.5cqw rgba(255, 202, 25, 0.5) !important;
-}
 .form-cta { margin-top:6.8cqw; text-align:center; position:relative; z-index:5; }
 .form-cta .flow-primary-button,
 .btn-lanjut { width:34cqw; height:10.5cqw; border-radius:5.2cqw; font-size:4.2cqw; font-weight:900; gap:1.6cqw; padding:0 3cqw; box-shadow:0 1.4cqw 0 var(--yellow-shadow); }
