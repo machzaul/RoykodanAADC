@@ -1,0 +1,192 @@
+{
+  "title": "Find Your Love Language",
+  "slug": "eggspresi-cinta",
+  "description": "Eggspresi Cinta • Royco x AADC Experience",
+  "questions": [
+    {
+      "id": "q1",
+      "order": 1,
+      "text": "Lagi burnout parah seharian, perhatian kayak gimana yang paling kamu butuhin?",
+      "answers": [
+        {
+          "id": "q1-a",
+          "text": "Langsung sat-set dimasakin omelet hangat favorit kamu",
+          "score": 3,
+          "resultMapping": { "ACTS_OF_SERVICE": 3 }
+        },
+        {
+          "id": "q1-b",
+          "text": "Dimasakin telur bareng sambil ngobrol santai di dapur",
+          "score": 3,
+          "resultMapping": { "QUALITY_TIME": 3 }
+        },
+        {
+          "id": "q1-c",
+          "text": "Dikasih pujian tulus pas kamu berhasil masak telur dadar sempurna",
+          "score": 3,
+          "resultMapping": { "WORDS_OF_AFFIRMATION": 3 }
+        },
+        {
+          "id": "q1-d",
+          "text": "Dibawain olahan telur kekinian favorit kamu sebagai surprise",
+          "score": 3,
+          "resultMapping": { "RECEIVING_GIFTS": 3 }
+        },
+        {
+          "id": "q1-e",
+          "text": "Diusap kepalanya dan dipeluk hangat pas kamu lagi goreng telur",
+          "score": 3,
+          "resultMapping": { "PHYSICAL_TOUCH": 3 }
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "order": 2,
+      "text": "Cara paling ampuh bikin si cold person luluh lewat masakan telur?",
+      "answers": [
+        {
+          "id": "q2-a",
+          "text": "Inisiatif ngeracik telur dadar spesial khas kamu buat dia",
+          "score": 3,
+          "resultMapping": { "ACTS_OF_SERVICE": 3 }
+        },
+        {
+          "id": "q2-b",
+          "text": "Ajak ngeracik dan bumbuin resep omelet bareng berdua",
+          "score": 3,
+          "resultMapping": { "QUALITY_TIME": 3 }
+        },
+        {
+          "id": "q2-c",
+          "text": "Kirim pesan manis \"semangat ya, aku tau kamu jago banget masak telur\"",
+          "score": 3,
+          "resultMapping": { "WORDS_OF_AFFIRMATION": 3 }
+        },
+        {
+          "id": "q2-d",
+          "text": "Kirim egg box atau sarapan telur favorit ke tempatnya",
+          "score": 3,
+          "resultMapping": { "RECEIVING_GIFTS": 3 }
+        },
+        {
+          "id": "q2-e",
+          "text": "Kasih sentuhan lembut di pundak pas dia lagi sibuk di depan kompor",
+          "score": 3,
+          "resultMapping": { "PHYSICAL_TOUCH": 3 }
+        }
+      ]
+    },
+    {
+      "id": "q3",
+      "order": 3,
+      "text": "Momen masak telur bareng yang paling bikin kamu salting tuh pas...",
+      "answers": [
+        {
+          "id": "q3-a",
+          "text": "Dia inisiatif ngeracik dan balikin telurnya khusus buat kamu",
+          "score": 3,
+          "resultMapping": { "ACTS_OF_SERVICE": 3 }
+        },
+        {
+          "id": "q3-b",
+          "text": "Vibes-nya dapet banget buat deep talk sambil nunggu telurnya matang",
+          "score": 3,
+          "resultMapping": { "QUALITY_TIME": 3 }
+        },
+        {
+          "id": "q3-c",
+          "text": "Dia terang-terangan muji wangi dan rasa telur buatan kamu",
+          "score": 3,
+          "resultMapping": { "WORDS_OF_AFFIRMATION": 3 }
+        },
+        {
+          "id": "q3-d",
+          "text": "Dia mendadak beliin cetakan telur bentuk hati yang lucu buat kamu",
+          "score": 3,
+          "resultMapping": { "RECEIVING_GIFTS": 3 }
+        },
+        {
+          "id": "q3-e",
+          "text": "Masak berdiri dempetan sambil skinship santai di depan kompor",
+          "score": 3,
+          "resultMapping": { "PHYSICAL_TOUCH": 3 }
+        }
+      ]
+    },
+    {
+      "id": "q4",
+      "order": 4,
+      "text": "Gebetan lagi bad mood, reaksi first aid kamu?",
+      "answers": [
+        {
+          "id": "q4-a",
+          "text": "Sat-set bikin dan suapin omelet keju yang gurih hangat",
+          "score": 3,
+          "resultMapping": { "ACTS_OF_SERVICE": 3 }
+        },
+        {
+          "id": "q4-b",
+          "text": "Samperin ke rumahnya dan ajak masak resep telur viral bareng",
+          "score": 3,
+          "resultMapping": { "QUALITY_TIME": 3 }
+        },
+        {
+          "id": "q4-c",
+          "text": "Kirim chat ucapan semangat plus apresiasi usaha dia masak hari ini",
+          "score": 3,
+          "resultMapping": { "WORDS_OF_AFFIRMATION": 3 }
+        },
+        {
+          "id": "q4-d",
+          "text": "GoFood-in egg sandwich hits kesukaannya biar dia happy lagi",
+          "score": 3,
+          "resultMapping": { "RECEIVING_GIFTS": 3 }
+        },
+        {
+          "id": "q4-e",
+          "text": "Langsung peluk hangat dari belakang pas dia lagi siapin sarapan telur",
+          "score": 3,
+          "resultMapping": { "PHYSICAL_TOUCH": 3 }
+        }
+      ]
+    },
+    {
+      "id": "q5",
+      "order": 5,
+      "text": "Mana yang bikin kamu berasa dicintai secara \"ugal-ugalan\" di dapur?",
+      "answers": [
+        {
+          "id": "q5-a",
+          "text": "Doi super peka & sat-set nyiapin bahan-bahan buat bikin omelet",
+          "score": 3,
+          "resultMapping": { "ACTS_OF_SERVICE": 3 }
+        },
+        {
+          "id": "q5-b",
+          "text": "Doi selalu make time buat nemenin dan bantu kamu mengocok telur",
+          "score": 3,
+          "resultMapping": { "QUALITY_TIME": 3 }
+        },
+        {
+          "id": "q5-c",
+          "text": "Doi rajin hype up dan bilang telur buatan kamu yang paling enak",
+          "score": 3,
+          "resultMapping": { "WORDS_OF_AFFIRMATION": 3 }
+        },
+        {
+          "id": "q5-d",
+          "text": "Doi peka beliin bumbu Royco dan piring estetik khusus buat masakan telurmu",
+          "score": 3,
+          "resultMapping": { "RECEIVING_GIFTS": 3 }
+        },
+        {
+          "id": "q5-e",
+          "text": "Doi refleks genggam tanganmu pas lagi belajar mbalikin telur dadar",
+          "score": 3,
+          "resultMapping": { "PHYSICAL_TOUCH": 3 }
+        }
+      ]
+    }
+  ]
+}

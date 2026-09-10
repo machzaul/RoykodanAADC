@@ -1,67 +1,32 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { generateReceiptEscPos, printToBlueprintQ58D } from '@/lib/printer';
+import { getSession, updateSession } from '@/lib/session-store';
+import { updatePrintStatusInExcel } from '@/lib/excel';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { sessionId, token } = body;
+    const { sessionId, token, name: fallbackName, resultTitle: fallbackResult, queueNumber: fallbackQueue } = body;
 
-    if (!sessionId && !token) {
-      return NextResponse.json(
-        { error: 'Session ID atau token diperlukan untuk mencetak struk.' },
-        { status: 400 }
-      );
-    }
+    // 1. Fetch session info from local memory
+    const session = sessionId ? getSession(sessionId) : token ? getSession(token) : undefined;
 
-    // 1. Fetch the QuizSession with participant and result
-    const session = await prisma.quizSession.findFirst({
-      where: sessionId ? { id: sessionId } : { token },
-      include: {
-        participant: true,
-        result: true,
-      },
-    });
+    const participantName = (session?.name || fallbackName || 'PESERTA').trim();
+    const resultTitle = (session?.resultTitle || fallbackResult || 'ACT OF SERVICE').trim();
+    const queueNumber = session?.queueNumber || fallbackQueue || 1;
 
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Sesi kuis tidak ditemukan.' },
-        { status: 404 }
-      );
-    }
-
-    // 2. Strict check: only 1 receipt per session
-    if (session.isPrinted) {
+    // Check if already printed
+    if (session?.isPrinted) {
       return NextResponse.json(
         {
           error: 'Struk sudah pernah dicetak untuk sesi ini. Maksimal 1 kali cetak per sesi.',
           isPrinted: true,
-          queueNumber: session.queueNumber,
+          queueNumber,
           printedAt: session.printedAt,
         },
         { status: 400 }
       );
     }
-
-    // 3. Ensure queueNumber is assigned
-    let queueNumber = session.queueNumber;
-    if (!queueNumber) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const lastSessionToday = await prisma.quizSession.findFirst({
-        where: {
-          queueNumber: { not: null },
-          createdAt: { gte: todayStart },
-        },
-        orderBy: { queueNumber: 'desc' },
-      });
-
-      queueNumber = (lastSessionToday?.queueNumber ?? 0) + 1;
-    }
-
-    const participantName = session.participant?.name || 'PESERTA';
-    const resultTitle = session.result?.title || 'ACT OF SERVICE';
 
     // Format current time as [HH.mm] (e.g. [13.39])
     const now = new Date();
@@ -69,7 +34,7 @@ export async function POST(request: Request) {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const timeFormatted = `[${hours}.${minutes}]`;
 
-    // 4. Generate ESC/POS commands
+    // 2. Generate ESC/POS commands
     const escposBuffer = generateReceiptEscPos({
       name: participantName,
       resultTitle,
@@ -77,7 +42,7 @@ export async function POST(request: Request) {
       time: timeFormatted,
     });
 
-    // 5. Send to physical Blueprint BP-Q58D printer
+    // 3. Send directly to physical Blueprint BP-Q58D printer via local USB
     try {
       await printToBlueprintQ58D(escposBuffer);
     } catch (printErr: any) {
@@ -91,30 +56,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // 6. Mark session as printed in database
-    const updatedSession = await prisma.quizSession.update({
-      where: { id: session.id },
-      data: {
+    // 4. Update session state
+    if (session) {
+      updateSession(session.sessionId, {
         isPrinted: true,
-        printedAt: new Date(),
-        queueNumber,
-      },
-    });
+        printedAt: now,
+      });
+    }
 
-    // 7. Log analytics event
-    await prisma.analyticsEvent.create({
-      data: {
-        quizId: session.quizId,
-        sessionId: session.id,
-        eventType: 'PRINT_RECEIPT',
-      },
-    });
+    // 5. Update local Excel file row in real-time (Status Cetak -> Sudah Cetak)
+    try {
+      await updatePrintStatusInExcel(session?.token || token || queueNumber, now);
+    } catch (excelErr) {
+      console.error('Peringatan: Gagal memperbarui status cetak di Excel:', excelErr);
+    }
 
     return NextResponse.json({
       success: true,
       isPrinted: true,
-      queueNumber: updatedSession.queueNumber,
-      printedAt: updatedSession.printedAt,
+      queueNumber,
+      printedAt: now,
       receiptPreview: {
         name: participantName.toUpperCase(),
         resultTitle: resultTitle === 'Acts of Service' ? '[ACT OF SERVICE]' : `[${resultTitle.toUpperCase()}]`,
@@ -130,3 +91,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

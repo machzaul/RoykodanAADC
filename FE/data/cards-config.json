@@ -1,0 +1,37 @@
+{
+  "onlineBaseUrl": "https://royko-aadc.vercel.app",
+  "defaultMaxQuota": 100,
+  "notes": "Jika customQrUrl diisi, QR code untuk kartu tersebut akan langsung mengarah ke URL tersebut. Jika dikosongkan, otomatis menggunakan onlineBaseUrl + /result/[slug-kartu]. maxQuota mengatur batas maksimal kartu keluar (default 100).",
+  "cards": {
+    "acts-of-service": {
+      "cardId": 1,
+      "title": "Acts of Service",
+      "customQrUrl": "",
+      "maxQuota": 100
+    },
+    "quality-time": {
+      "cardId": 2,
+      "title": "Quality Time",
+      "customQrUrl": "",
+      "maxQuota": 100
+    },
+    "physical-touch": {
+      "cardId": 3,
+      "title": "Physical Touch",
+      "customQrUrl": "",
+      "maxQuota": 100
+    },
+    "receiving-gifts": {
+      "cardId": 4,
+      "title": "Receiving Gifts",
+      "customQrUrl": "",
+      "maxQuota": 100
+    },
+    "words-of-affirmation": {
+      "cardId": 5,
+      "title": "Words of Affirmation",
+      "customQrUrl": "",
+      "maxQuota": 100
+    }
+  }
+}

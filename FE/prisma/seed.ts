@@ -296,7 +296,7 @@ async function main() {
       },
       {
         questionId: q5.id,
-        text: 'Doi selalu make time buat nemenin dan bantu kamu ngocok telur',
+        text: 'Doi selalu make time buat nemenin dan bantu kamu mengocok telur',
         score: 3,
         resultMapping: { QUALITY_TIME: 3 },
       },
@@ -314,7 +314,7 @@ async function main() {
       },
       {
         questionId: q5.id,
-        text: 'Doi refleks genggam tanganmu pas lagi belajar mbalik telur dadar',
+        text: 'Doi refleks genggam tanganmu pas lagi belajar mbalikin telur dadar',
         score: 3,
         resultMapping: { PHYSICAL_TOUCH: 3 },
       },

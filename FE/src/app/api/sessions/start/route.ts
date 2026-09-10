@@ -1,14 +1,5 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-
-function generateToken(length = 8): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let token = '';
-  for (let i = 0; i < length; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
-}
+import { createSession, generateToken } from '@/lib/session-store';
 
 export async function POST(request: Request) {
   try {
@@ -16,73 +7,36 @@ export async function POST(request: Request) {
     const { name, phone, email, consent, newsletter, quizId } = body;
 
     // Validate inputs
-    if (!name || !phone || !quizId) {
+    if (!name || !phone) {
       return NextResponse.json(
-        { error: 'Name, phone number, and quiz ID are required.' },
+        { error: 'Nama dan nomor telepon wajib diisi.' },
         { status: 400 }
       );
     }
 
-    // 1. Find or create Participant based on phone number
-    let participant = await prisma.participant.findFirst({
-      where: { phone },
-    });
+    const sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    const token = generateToken(8);
 
-    if (participant) {
-      // Update participant info
-      participant = await prisma.participant.update({
-        where: { id: participant.id },
-        data: { name, phone, email: email || null, consent, newsletter },
-      });
-    } else {
-      // Create new participant
-      participant = await prisma.participant.create({
-        data: { name, phone, email: email || null, consent, newsletter },
-      });
-    }
-
-    // 2. Generate unique share token
-    let token = generateToken();
-    let tokenExists = await prisma.quizSession.findUnique({
-      where: { token },
-    });
-
-    // Ensure token uniqueness
-    while (tokenExists) {
-      token = generateToken();
-      tokenExists = await prisma.quizSession.findUnique({
-        where: { token },
-      });
-    }
-
-    // 3. Create QuizSession
-    const session = await prisma.quizSession.create({
-      data: {
-        quizId,
-        participantId: participant.id,
-        answers: [], // empty list of answers
-        token,
-      },
-    });
-
-    // 4. Log start event to analytics
-    await prisma.analyticsEvent.create({
-      data: {
-        quizId,
-        sessionId: session.id,
-        eventType: 'START',
-      },
+    const session = createSession({
+      sessionId,
+      token,
+      name: String(name).trim(),
+      phone: String(phone).trim(),
+      email: email ? String(email).trim() : undefined,
+      consent: Boolean(consent),
+      newsletter: Boolean(newsletter),
     });
 
     return NextResponse.json({
-      sessionId: session.id,
+      sessionId: session.sessionId,
       token: session.token,
     });
   } catch (error: any) {
     console.error('Error starting session:', error);
     return NextResponse.json(
-      { error: 'Failed to initialize session.', details: error.message },
+      { error: 'Gagal memulai sesi kuis.', details: error.message },
       { status: 500 }
     );
   }
 }
+

@@ -5,6 +5,7 @@ import { Check, Printer, RotateCcw, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import PanciSequencePlayer from './PanciSequencePlayer';
 import { getCardByIdOrSlug } from '@/lib/cards';
+import { playBacksound, playButtonSound, playResultSound, setupAudioAutoUnlock } from '@/lib/sound';
 
 interface Answer { id: string; text: string; }
 interface Question { id: string; text: string; answers: Answer[]; }
@@ -15,7 +16,16 @@ type FormField = 'name' | 'phone' | 'email';
 type KeyboardMode = 'letters' | 'numbers';
 
 const letters = ['A', 'B', 'C', 'D', 'E'];
-const Stripe = () => <img className="flow-stripe" src="/ImageRef/bottom-strip.png" alt="" aria-hidden="true" />;
+const Stripe = ({ className = '' }: { className?: string }) => (
+  <img className={`flow-stripe ${className}`} src="/ImageRef/bottom-strip.png" alt="" aria-hidden="true" />
+);
+
+function getFirstName(fullName: string): string {
+  const trimmed = (fullName || '').trim();
+  if (!trimmed) return 'Nicholas';
+  return trimmed.split(/\s+/)[0] || 'Nicholas';
+}
+
 function PrimaryButton({
   children,
   onClick,
@@ -29,10 +39,15 @@ function PrimaryButton({
 }) {
   const [isPressed, setIsPressed] = useState(false);
 
+  const handleClick = () => {
+    playButtonSound();
+    if (onClick) onClick();
+  };
+
   return (
     <button
       type={type}
-      onClick={onClick}
+      onClick={handleClick}
       onMouseDown={() => setIsPressed(true)}
       onMouseUp={() => setIsPressed(false)}
       onMouseLeave={() => setIsPressed(false)}
@@ -173,21 +188,45 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
   const [origin, setOrigin] = useState('');
   const [activeField, setActiveField] = useState<FormField | null>(null);
   const [keyboardMode, setKeyboardMode] = useState<KeyboardMode>('letters');
+  const [cardsConfig, setCardsConfig] = useState<{
+    onlineBaseUrl?: string;
+    cards?: Record<string, { customQrUrl?: string }>;
+  } | null>(null);
 
-  useEffect(() => { setOrigin(window.location.origin); }, []);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    setupAudioAutoUnlock();
+  }, []);
+
+  useEffect(() => {
+    if (flowState === 'result') {
+      playResultSound();
+    }
+  }, [flowState]);
+
   useEffect(() => {
     fetch('/api/quizzes/active').then(async (response) => {
       if (!response.ok) throw new Error('Gagal memuat kuis.');
       return response.json();
     }).then(setQuiz).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
+
+    fetch('/api/config/cards')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((cfg) => { if (cfg) setCardsConfig(cfg); })
+      .catch(() => {});
   }, [initialQuizSlug]);
 
   const currentQuestion = quiz?.questions[questionIndex];
   const cardInfo = result ? (getCardByIdOrSlug(result.code) || getCardByIdOrSlug(result.title)) : null;
   const cardSlug = cardInfo ? cardInfo.slug : 'acts-of-service';
-  const onlineBase = process.env.NEXT_PUBLIC_ONLINE_URL || origin;
+
+  // Perhitungan URL QR: Cek apakah ada custom QR URL untuk kartu ini dari konfigurasi lokal
+  const customPerCardUrl = cardsConfig?.cards?.[cardSlug]?.customQrUrl;
+  const onlineBase = cardsConfig?.onlineBaseUrl || process.env.NEXT_PUBLIC_ONLINE_URL || origin;
   const shareUrl = result
-    ? `${onlineBase}/result/${cardSlug}${sessionToken ? `?session=${sessionToken}` : ''}`
+    ? (customPerCardUrl && customPerCardUrl.trim() !== ''
+        ? customPerCardUrl.trim()
+        : `${onlineBase}/result/${cardSlug}${sessionToken ? `?session=${sessionToken}` : ''}`)
     : (sessionToken ? `${onlineBase}/result/${sessionToken}` : onlineBase);
   function openKeyboard(field: FormField) {
     setActiveField(field);
@@ -253,6 +292,7 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
   function beginQuiz() { setQuestionIndex(0); setAnswers({}); setSelectedLetter(null); setFlowState('quiz'); }
   function selectAnswer(questionId: string, answerId: string, letter: string) {
     if (selectedLetter) return;
+    playButtonSound();
     const nextAnswers = { ...answers, [questionId]: answerId }; setAnswers(nextAnswers); setSelectedLetter(letter);
     window.setTimeout(() => {
       setSelectedLetter(null);
@@ -264,7 +304,19 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
     setFlowState('loading');
     const minimumLoading = new Promise((resolve) => window.setTimeout(resolve, 2200));
     try {
-      const request = fetch('/api/sessions/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, answerIds: Object.values(finalAnswers) }) }).then((response) => response.json());
+      const request = fetch('/api/sessions/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          answerIds: Object.values(finalAnswers),
+          name,
+          phone,
+          email,
+          consent,
+          newsletter,
+        }),
+      }).then((response) => response.json());
       const [, data] = await Promise.all([minimumLoading, request]);
       if (!data?.result) throw new Error('Gagal memproses hasil.');
       setResult(data.result);
@@ -278,6 +330,7 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
   }
 
   async function handlePrintReceipt() {
+    playButtonSound();
     if (isPrinted) {
       setShowReceipt(true);
       return;
@@ -291,7 +344,13 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
       const response = await fetch('/api/sessions/print', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, token: sessionToken }),
+        body: JSON.stringify({
+          sessionId,
+          token: sessionToken,
+          name,
+          resultTitle: result?.title,
+          queueNumber,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -329,11 +388,16 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
     setShakingFields({});
   }
 
+  function handleReset() {
+    playButtonSound();
+    reset();
+  }
+
   if (loading || error || !quiz) return <main className="flow-shell flow-status"><Stripe /><div className="flow-status-message">{loading ? 'Memuat pengalaman…' : error || 'Pengalaman belum tersedia.'}</div><Stripe /></main>;
-  return <main className="flow-shell"><Stripe /><section className="flow-content">
+  return <main className="flow-shell"><Stripe className={flowState === 'result' ? 'invisible' : ''} /><section className="flow-content">
     {flowState === 'intro' && <div className="flow-view intro-view">
       <img className="intro-lockup" src="/ImageRef/brand-lockup.png" alt="Royco — Ada apa dengan Cinta?" /><img className="intro-omelette" src="/ImageRef/Teluromelete.png" alt="Omelet cinta" />
-      <p className="flow-eyebrow intro-eyebrow">EGGSPRESI CINTA · ROYCO X AADC</p><h1 className="intro-title">Find Your<br />Love<br />Language</h1><p className="intro-copy">Cara kamu masak diam-diam<br />nyimpen cara kamu mencintai.<br />Yuk cari tahu!</p><div className="intro-cta"><PrimaryButton onClick={() => setFlowState('form')}>Mulai <b>→</b></PrimaryButton></div>
+      <p className="flow-eyebrow intro-eyebrow">EGGSPRESI CINTA · ROYCO X AADC</p><h1 className="intro-title">Find Your<br />Love<br />Language</h1><p className="intro-copy">Cara kamu masak diam-diam<br />nyimpen cara kamu mencintai.<br />Yuk cari tahu!</p><div className="intro-cta"><PrimaryButton onClick={() => setFlowState('form')}><span>Mulai</span> <img src="/ImageRef/label-arrow.png" alt="" className="btn-arrow-icon-sm" /></PrimaryButton></div>
     </div>}
     {flowState === 'form' && <div className="flow-view form-view">
       <div className="form-brand-crop"><img src="/ImageRef/brand-lockup.png" alt="Royco" /></div><p className="flow-eyebrow form-eyebrow">A ROYCO X AADC EXPERIENCE</p><h1 className="form-title">Kenalan dulu yuk</h1><p className="form-copy">Isi data kamu buat nerima kartu<br />cinta versi digital.</p>
@@ -343,11 +407,11 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
         <label>Email<input value={email} readOnly inputMode="none" onFocus={() => openKeyboard('email')} onClick={() => openKeyboard('email')} type="email" placeholder="email@kamu.com" /></label>
         <button type="button" className={`consent-row ${shakingFields.consent ? 'field-shake' : ''}`} onClick={() => setConsent(!consent)}><span className={'fake-checkbox ' + (consent ? 'checked' : '')}>{consent && <Check />}</span><span>Aku setuju data ku dipakai Royco x AADC dan dihubungi terkait event ini.</span></button>
         <button type="button" className="consent-row optional" onClick={() => setNewsletter(!newsletter)}><span className={'fake-checkbox ' + (newsletter ? 'checked' : '')}>{newsletter && <Check />}</span><span>Boleh kirim promo &amp; update dari Royco. <i>(opsional)</i></span></button>
-        <div className="form-cta"><PrimaryButton type="submit">Lanjut <b>→</b></PrimaryButton></div>
+        <div className="form-cta"><PrimaryButton type="submit" className="btn-lanjut"><span>Lanjut</span> <img src="/ImageRef/label-arrow.png" alt="" className="btn-arrow-icon-sm" /></PrimaryButton></div>
       </form>
       {activeField && <VirtualKeyboard mode={keyboardMode} onKey={appendKeyboardKey} onModeChange={setKeyboardMode} onNext={advanceKeyboard} />}
     </div>}
-    {flowState === 'ready' && <div className="flow-view ready-view"><img className="ready-omelette" src="/ImageRef/Teluromelete.png" alt="Omelet cinta" /><p className="flow-eyebrow ready-eyebrow">KAMU SIAP!</p><h1 className="ready-title">Halo, {name || 'Nicholas'}!</h1><p className="ready-copy">5 pertanyaan singkat buat<br />nemuin love language kamu.<br />Jawab jujur ya!</p><div className="ready-cta"><PrimaryButton onClick={beginQuiz}>Mulai Tes <b>→</b></PrimaryButton></div></div>}
+    {flowState === 'ready' && <div className="flow-view ready-view"><img className="ready-omelette" src="/ImageRef/Teluromelete.png" alt="Omelet cinta" /><p className="flow-eyebrow ready-eyebrow">KAMU SIAP!</p><h1 className="ready-title">Halo, {getFirstName(name)}!</h1><p className="ready-copy">5 pertanyaan singkat buat<br />nemuin love language kamu.<br />Jawab jujur ya!</p><div className="ready-cta"><PrimaryButton onClick={beginQuiz} className="btn-mulai-tes"><span>Mulai Tes</span> <img src="/ImageRef/label-arrow.png" alt="" className="btn-arrow-icon" /></PrimaryButton></div></div>}
     {flowState === 'quiz' && currentQuestion && <div className="flow-view quiz-view"><div className="quiz-progress" aria-label={'Pertanyaan ' + (questionIndex + 1) + ' dari ' + quiz.questions.length}>{letters.map((_, index) => <span key={index} className={index < questionIndex ? 'complete' : index === questionIndex ? 'active' : ''} />)}</div><p className="flow-eyebrow quiz-eyebrow">PERTANYAAN {questionIndex + 1} DARI {quiz.questions.length}</p><h1 className="quiz-question">{currentQuestion.text}</h1><div className="quiz-options">{currentQuestion.answers.map((answer, index) => { const letter = letters[index]; return <button key={answer.id} onClick={() => selectAnswer(currentQuestion.id, answer.id, letter)} className={'quiz-option ' + (selectedLetter === letter ? 'selected' : '')}><span className="quiz-letter">{letter}</span><span>{answer.text}</span></button>; })}</div></div>}
     {flowState === 'loading' && <div className="flow-view loading-view"><div className="loading-pan"><PanciSequencePlayer /></div><h1>Meracik kartu<br />cintamu ..</h1></div>}
     {flowState === 'result' && result && <div className="flow-view result-view"><p className="flow-eyebrow result-eyebrow">HASIL LOVE LANGUAGE KAMU</p><img className="result-card-image" src={result.image} alt={result.title} />
@@ -394,13 +458,17 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
           </strong>
         </div>
       </div>
-      <button className="finish-action" onClick={reset}><RotateCcw /> Selesai</button>
+      <button className="finish-action" onClick={handleReset}><RotateCcw /> Selesai</button>
     </div>}
   </section><Stripe />
   {showReceipt && result && (
     <div className="receipt-overlay" role="dialog" aria-modal="true">
       <div className="receipt-modal thermal-slip-modal">
-        <button className="close-receipt" onClick={() => setShowReceipt(false)} aria-label="Tutup"><X /></button>
+        <button className="close-receipt" onClick={() => { playButtonSound(); setShowReceipt(false); }} aria-label="Tutup"><X /></button>
+        <div className="receipt-popup-header">
+          <span className="receipt-popup-icon">🍳</span>
+          <h3 className="receipt-popup-title">Struk Berhasil Dicetak!</h3>
+        </div>
         <div className="slip-status-badge">
           <Printer />
           <span>Tercetak di Blueprint BP-Q58D</span>
@@ -412,7 +480,7 @@ export default function QuizEngine({ initialQuizSlug = 'eggspresi-cinta' }: Quiz
           <div className="slip-time">{`[${String(new Date().getHours()).padStart(2, '0')}.${String(new Date().getMinutes()).padStart(2, '0')}]`}</div>
         </div>
         <p className="receipt-note">Tukarkan struk ini di booth Royco untuk 1 omelette spesial.</p>
-        <button onClick={() => setShowReceipt(false)}>Selesai</button>
+        <button onClick={() => { playButtonSound(); setShowReceipt(false); }}>Selesai</button>
       </div>
     </div>
   )}

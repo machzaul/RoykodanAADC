@@ -1,36 +1,9 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { getLocalQuiz } from '@/lib/quiz-data';
 
 export async function GET() {
   try {
-    // Find the first active quiz
-    const quiz = await prisma.quiz.findFirst({
-      where: { status: true },
-      include: {
-        questions: {
-          orderBy: { order: 'asc' },
-          include: {
-            answers: {
-              select: {
-                id: true,
-                text: true,
-                image: true,
-                score: true,
-                // Exclude resultMapping for security
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!quiz) {
-      return NextResponse.json(
-        { error: 'No active quiz campaign found.' },
-        { status: 404 }
-      );
-    }
-
+    const quiz = getLocalQuiz();
     return NextResponse.json(quiz);
   } catch (error: any) {
     console.error('Error fetching active quiz:', error);
@@ -40,3 +13,4 @@ export async function GET() {
     );
   }
 }
+

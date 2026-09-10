@@ -76,8 +76,73 @@ export function generateReceiptEscPos(data: ReceiptData): Buffer {
   return Buffer.concat(chunks);
 }
 
+/**
+ * Memeriksa status fisik koneksi printer di Windows (kabel USB terhubung & status online)
+ */
+export async function checkPrinterPhysicalStatus(
+  printerName = process.env.PRINTER_NAME || 'Blueprint BP-Q58D'
+): Promise<{ online: boolean; error?: string }> {
+  if (process.platform !== 'win32') {
+    return { online: true };
+  }
+
+  const ps = `
+    $p = Get-CimInstance Win32_Printer | Where-Object { $_.Name -like "*${printerName}*" }
+    if (-not $p) {
+      Write-Output "NOT_FOUND"
+      exit
+    }
+    if ($p.WorkOffline) {
+      Write-Output "OFFLINE"
+      exit
+    }
+    if ($p.PortName -like "USB*") {
+      $usb = Get-PnpDevice -Class "USBPrinting" -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "OK" -and $_.Present -eq $true }
+      if (-not $usb) {
+        Write-Output "USB_DISCONNECTED"
+        exit
+      }
+    }
+    if ($p.PrinterStatus -eq 2 -or $p.PrinterStatus -eq 7) {
+      Write-Output "OFFLINE"
+      exit
+    }
+    Write-Output "ONLINE"
+  `;
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve({ online: true });
+    }, 2500);
+
+    execFile('powershell', ['-NoProfile', '-Command', ps], (err, stdout) => {
+      clearTimeout(timer);
+      if (err) {
+        return resolve({ online: true });
+      }
+      const result = (stdout || '').trim();
+      if (result === 'NOT_FOUND') {
+        resolve({ online: false, error: `Driver printer '${printerName}' tidak terpasang di Windows.` });
+      } else if (result === 'OFFLINE') {
+        resolve({ online: false, error: `Printer '${printerName}' sedang offline atau mati. Pastikan kabel USB terhubung dan daya printer menyala.` });
+      } else if (result === 'USB_DISCONNECTED') {
+        resolve({ online: false, error: `Kabel USB printer '${printerName}' tidak terhubung ke komputer.` });
+      } else {
+        resolve({ online: true });
+      }
+    });
+  });
+}
+
 export async function printToBlueprintQ58D(buffer: Buffer): Promise<{ success: boolean; message?: string }> {
   const printerName = process.env.PRINTER_NAME || 'Blueprint BP-Q58D';
+
+  // 1. Pengecekan hardware printer fisik sebelum mengirim dokumen ke spooler Windows
+  const status = await checkPrinterPhysicalStatus(printerName);
+  if (!status.online) {
+    throw new Error(status.error || `Printer '${printerName}' tidak terhubung atau sedang offline.`);
+  }
+
   const exePath = path.resolve(process.cwd(), 'scripts', 'RawPrinter.exe');
   const base64Data = buffer.toString('base64');
 

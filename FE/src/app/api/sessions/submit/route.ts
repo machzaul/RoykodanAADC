@@ -1,121 +1,93 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { calculateResult } from '@/lib/scoring';
+import { calculateQuizResult } from '@/lib/quiz-data';
+import { getSession, updateSession } from '@/lib/session-store';
+import { getNextQueueNumber, saveParticipantToExcel, formatDateTime, getCardCountsFromExcel } from '@/lib/excel';
+import { getAllCardQuotas } from '@/lib/cards-config';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { sessionId, answerIds } = body;
+    const { sessionId, answerIds, name, phone, email, consent, newsletter } = body;
 
     // Validate inputs
-    if (!sessionId || !answerIds || !Array.isArray(answerIds) || answerIds.length === 0) {
+    if (!answerIds || !Array.isArray(answerIds) || answerIds.length === 0) {
       return NextResponse.json(
-        { error: 'Session ID and a non-empty array of answer IDs are required.' },
+        { error: 'Daftar jawaban kuis diperlukan.' },
         { status: 400 }
       );
     }
 
-    // 1. Fetch the QuizSession
-    const session = await prisma.quizSession.findUnique({
-      where: { id: sessionId },
-      include: { quiz: true },
-    });
+    // 1. Fetch session from local memory if available
+    const existingSession = sessionId ? getSession(sessionId) : undefined;
+    const participantName = (existingSession?.name || name || 'Peserta').trim();
+    const participantPhone = (existingSession?.phone || phone || '-').trim();
+    const participantEmail = existingSession?.email || email || undefined;
+    const participantConsent = existingSession?.consent ?? Boolean(consent);
+    const participantNewsletter = existingSession?.newsletter ?? Boolean(newsletter);
+    const sessionToken = existingSession?.token || ('tok_' + Math.random().toString(36).substring(2, 9));
 
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Quiz session not found.' },
-        { status: 404 }
-      );
-    }
+    // 2. Fetch current card counts and quotas (maksimal keluar 100 kartu)
+    const [cardCounts, cardQuotas] = await Promise.all([
+      getCardCountsFromExcel(),
+      getAllCardQuotas(),
+    ]);
 
-    // 2. Fetch the selected Answer records from the database
-    const answers = await prisma.answer.findMany({
-      where: {
-        id: { in: answerIds },
-      },
-      select: {
-        id: true,
-        resultMapping: true,
-        score: true,
-      },
-    });
+    // Calculate winning result with quota check (jika >= 100, dialihkan random ke kartu lain)
+    const { card, answersText, isQuotaFallback } = calculateQuizResult(
+      answerIds,
+      cardCounts,
+      cardQuotas
+    );
 
-    if (answers.length === 0) {
-      return NextResponse.json(
-        { error: 'No valid answers found for the provided IDs.' },
-        { status: 404 }
-      );
-    }
+    // 3. Get next daily queue number from local Excel
+    const queueNumber = await getNextQueueNumber();
+    const nowFormatted = formatDateTime();
 
-    // 3. Fetch the possible ResultOption templates for this quiz
-    const resultOptions = await prisma.resultOption.findMany({
-      where: { quizId: session.quizId },
-    });
-
-    if (resultOptions.length === 0) {
-      return NextResponse.json(
-        { error: 'No result templates configured for this quiz.' },
-        { status: 500 }
-      );
-    }
-
-    // 4. Calculate the winning result
-    const winningResult = calculateResult(answers, resultOptions);
-
-    // Calculate sequential queueNumber for today
-    let queueNumber = session.queueNumber;
-    if (!queueNumber) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const lastSessionToday = await prisma.quizSession.findFirst({
-        where: {
-          queueNumber: { not: null },
-          createdAt: { gte: todayStart },
-        },
-        orderBy: { queueNumber: 'desc' },
-      });
-
-      queueNumber = (lastSessionToday?.queueNumber ?? 0) + 1;
-    }
-
-    // 5. Update the QuizSession record
-    const updatedSession = await prisma.quizSession.update({
-      where: { id: sessionId },
-      data: {
-        answers: answerIds,
-        resultId: winningResult.id,
+    // 4. Save participant row directly to local Excel (peserta_kuis.xlsx)
+    try {
+      await saveParticipantToExcel({
         queueNumber,
-        completedAt: new Date(),
-      },
-      include: {
-        result: true,
-        participant: true,
-      },
-    });
+        sessionToken,
+        name: participantName,
+        phone: participantPhone,
+        email: participantEmail,
+        consent: participantConsent,
+        newsletter: participantNewsletter,
+        resultTitle: card.title,
+        recipeSubtitle: card.subTitle,
+        isPrinted: false,
+        timestamp: nowFormatted,
+        answersSummary: answersText.join(' | '),
+      });
+    } catch (excelErr) {
+      console.error('Peringatan: Gagal menyimpan data ke Excel:', excelErr);
+    }
 
-    // 6. Log completion event to analytics
-    await prisma.analyticsEvent.create({
-      data: {
-        quizId: session.quizId,
-        sessionId: session.id,
-        eventType: 'COMPLETE',
-      },
-    });
+    // 5. Update session in local store
+    if (sessionId) {
+      updateSession(sessionId, {
+        answerIds,
+        resultCode: card.code,
+        resultTitle: card.title,
+        recipeSubtitle: card.subTitle,
+        queueNumber,
+        isPrinted: false,
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      token: updatedSession.token,
-      result: updatedSession.result,
-      participant: updatedSession.participant,
-      queueNumber: updatedSession.queueNumber,
-      isPrinted: updatedSession.isPrinted,
+      token: sessionToken,
+      result: card,
+      queueNumber,
+      isPrinted: false,
     });
   } catch (error: any) {
     console.error('Error submitting quiz answers:', error);
     return NextResponse.json(
-      { error: 'Failed to process quiz submission.', details: error.message },
+      { error: 'Gagal memproses jawaban kuis.', details: error.message },
       { status: 500 }
     );
   }
 }
+
