@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       console.error('Printer execution error:', printErr);
       return NextResponse.json(
         {
-          error: `Gagal mencetak ke printer Blueprint BP-Q58D: ${printErr.message || 'Printer tidak merespon'}. Pastikan kabel USB terhubung dan printer menyala.`,
+          error: printErr.message || 'Gagal mencetak ke printer Blueprint BP-Q58D. Pastikan printer menyala dan kabel USB terhubung.',
           isPrinted: false,
         },
         { status: 500 }

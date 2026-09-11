@@ -77,43 +77,112 @@ export function generateReceiptEscPos(data: ReceiptData): Buffer {
 }
 
 /**
- * Memeriksa status fisik koneksi printer di Windows (kabel USB terhubung & status online)
+ * Mencari file executable RawPrinter.exe di berbagai lokasi folder kerja
+ */
+export function getRawPrinterExePath(): string | null {
+  const candidates = [
+    path.resolve(process.cwd(), 'scripts', 'RawPrinter.exe'),
+    path.resolve(process.cwd(), 'FE', 'scripts', 'RawPrinter.exe'),
+    path.resolve(__dirname, '..', '..', '..', 'scripts', 'RawPrinter.exe'),
+    path.resolve(__dirname, '..', '..', 'scripts', 'RawPrinter.exe'),
+    path.resolve(__dirname, '..', 'scripts', 'RawPrinter.exe'),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+/**
+ * Mencari nama printer Windows yang terpasang secara cerdas.
+ * Mendeteksi Blueprint BP-Q58D, POS-58, atau printer thermal USB lainnya secara otomatis jika nama persis tidak ditemukan.
+ */
+export async function resolveWindowsPrinterName(
+  configuredName = process.env.PRINTER_NAME
+): Promise<string> {
+  const defaultFallback = 'Blueprint BP-Q58D';
+  if (process.platform !== 'win32') {
+    return (configuredName || defaultFallback).trim();
+  }
+
+  // Jika user secara spesifik mengatur PRINTER_NAME di .env, prioritaskan nama tersebut
+  if (configuredName && configuredName.trim().length > 0 && configuredName.trim() !== defaultFallback) {
+    return configuredName.trim();
+  }
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve(defaultFallback);
+    }, 2000);
+
+    const ps = `Get-CimInstance Win32_Printer | Select-Object -ExpandProperty Name`;
+
+    execFile('powershell', ['-NoProfile', '-Command', ps], (err, stdout) => {
+      clearTimeout(timer);
+      if (err || !stdout) {
+        return resolve(defaultFallback);
+      }
+
+      const names = stdout
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      // 1. Cek kecocokan persis "Blueprint BP-Q58D"
+      const exactBp = names.find((n) => n.toLowerCase() === defaultFallback.toLowerCase());
+      if (exactBp) return resolve(exactBp);
+
+      // 2. Cek printer yang memiliki kata "Blueprint" atau "BP-Q58" atau "Q58"
+      const bpMatch = names.find(
+        (n) =>
+          n.toLowerCase().includes('blueprint') ||
+          n.toLowerCase().includes('bp-q58') ||
+          n.toLowerCase().includes('q58')
+      );
+      if (bpMatch) return resolve(bpMatch);
+
+      // 3. Cek printer POS-58 thermal umum
+      const posMatch = names.find(
+        (n) =>
+          n.toLowerCase().includes('pos-58') ||
+          n.toLowerCase().includes('pos 58') ||
+          n.toLowerCase().includes('pos58') ||
+          n.toLowerCase().includes('thermal')
+      );
+      if (posMatch) return resolve(posMatch);
+
+      resolve(defaultFallback);
+    });
+  });
+}
+
+/**
+ * Memeriksa apakah driver printer terdaftar di Windows tanpa memblokir printer thermal yang WorkOffline/non-PnP.
  */
 export async function checkPrinterPhysicalStatus(
-  printerName = process.env.PRINTER_NAME || 'Blueprint BP-Q58D'
+  printerName?: string
 ): Promise<{ online: boolean; error?: string }> {
   if (process.platform !== 'win32') {
     return { online: true };
   }
 
-  const ps = `
-    $p = Get-CimInstance Win32_Printer | Where-Object { $_.Name -like "*${printerName}*" }
-    if (-not $p) {
-      Write-Output "NOT_FOUND"
-      exit
-    }
-    if ($p.WorkOffline) {
-      Write-Output "OFFLINE"
-      exit
-    }
-    if ($p.PortName -like "USB*") {
-      $usb = Get-PnpDevice -Class "USBPrinting" -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "OK" -and $_.Present -eq $true }
-      if (-not $usb) {
-        Write-Output "USB_DISCONNECTED"
-        exit
-      }
-    }
-    if ($p.PrinterStatus -eq 2 -or $p.PrinterStatus -eq 7) {
-      Write-Output "OFFLINE"
-      exit
-    }
-    Write-Output "ONLINE"
-  `;
+  const name = printerName || (await resolveWindowsPrinterName());
 
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       resolve({ online: true });
-    }, 2500);
+    }, 2000);
+
+    const ps = `
+      $p = Get-CimInstance Win32_Printer | Where-Object { $_.Name -like "*${name}*" }
+      if (-not $p) {
+        Write-Output "NOT_FOUND"
+      } else {
+        Write-Output "FOUND"
+      }
+    `;
 
     execFile('powershell', ['-NoProfile', '-Command', ps], (err, stdout) => {
       clearTimeout(timer);
@@ -122,11 +191,10 @@ export async function checkPrinterPhysicalStatus(
       }
       const result = (stdout || '').trim();
       if (result === 'NOT_FOUND') {
-        resolve({ online: false, error: `Driver printer '${printerName}' tidak terpasang di Windows.` });
-      } else if (result === 'OFFLINE') {
-        resolve({ online: false, error: `Printer '${printerName}' sedang offline atau mati. Pastikan kabel USB terhubung dan daya printer menyala.` });
-      } else if (result === 'USB_DISCONNECTED') {
-        resolve({ online: false, error: `Kabel USB printer '${printerName}' tidak terhubung ke komputer.` });
+        resolve({
+          online: false,
+          error: `Printer '${name}' belum terdaftar di Windows. Silakan cek Control Panel -> Devices and Printers.`,
+        });
       } else {
         resolve({ online: true });
       }
@@ -135,45 +203,98 @@ export async function checkPrinterPhysicalStatus(
 }
 
 export async function printToBlueprintQ58D(buffer: Buffer): Promise<{ success: boolean; message?: string }> {
-  const printerName = process.env.PRINTER_NAME || 'Blueprint BP-Q58D';
-
-  // 1. Pengecekan hardware printer fisik sebelum mengirim dokumen ke spooler Windows
-  const status = await checkPrinterPhysicalStatus(printerName);
-  if (!status.online) {
-    throw new Error(status.error || `Printer '${printerName}' tidak terhubung atau sedang offline.`);
-  }
-
-  const exePath = path.resolve(process.cwd(), 'scripts', 'RawPrinter.exe');
+  const printerName = await resolveWindowsPrinterName();
+  const exePath = getRawPrinterExePath();
   const base64Data = buffer.toString('base64');
 
-  if (fs.existsSync(exePath)) {
+  // Jalur Utama: Menggunakan RawPrinter.exe (Win32 Spooler RAW mode)
+  if (exePath && fs.existsSync(exePath)) {
     return new Promise((resolve, reject) => {
       execFile(exePath, [printerName, base64Data, '--base64'], (error, stdout, stderr) => {
         if (error) {
-          console.error('RawPrinter.exe failed:', stderr || stdout || error.message);
-          return reject(new Error(`Gagal mencetak ke ${printerName}: ${stderr || stdout || error.message}`));
+          const errOutput = (stderr || stdout || error.message || '').trim();
+          console.error('RawPrinter.exe failed:', errOutput);
+          if (errOutput.includes('1801')) {
+            return reject(
+              new Error(
+                `Printer '${printerName}' tidak ditemukan di Windows. Pastikan nama printer di Devices & Printers sesuai atau tentukan PRINTER_NAME di .env.`
+              )
+            );
+          }
+          return reject(
+            new Error(
+              `Gagal mencetak ke printer '${printerName}': ${errOutput || 'Printer tidak merespon'}. Pastikan daya printer menyala dan kabel USB terhubung.`
+            )
+          );
         }
         resolve({ success: true, message: stdout.trim() });
       });
     });
   }
 
-  // Fallback to PowerShell script if RawPrinter.exe is missing
+  // Jalur Cadangan (Fallback): Menggunakan Win32 API winspool.drv via PowerShell C# Add-Type
   const psScript = `
-    $base64 = "${base64Data}"
-    $bytes = [System.Convert]::FromBase64String($base64)
-    # Write to temp file
-    $tmp = [System.IO.Path]::GetTempFileName()
-    [System.IO.File]::WriteAllBytes($tmp, $bytes)
-    # Output to printer
-    Get-Content -Path $tmp -Encoding Byte -Raw | Out-Printer -Name "${printerName}" -ErrorAction Stop
-    Remove-Item $tmp -Force
+    $bytes = [System.Convert]::FromBase64String("${base64Data}")
+    $source = @"
+    using System;
+    using System.Runtime.InteropServices;
+    public class DirectSpooler {
+      [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+      public class DOCINFOA {
+        [MarshalAs(UnmanagedType.LPStr)] public string pDocName = "ThermalReceipt";
+        [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile = null;
+        [MarshalAs(UnmanagedType.LPStr)] public string pDataType = "RAW";
+      }
+      [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi)]
+      public static extern bool OpenPrinter(string szPrinter, out IntPtr hPrinter, IntPtr pd);
+      [DllImport("winspool.Drv", EntryPoint = "ClosePrinter", SetLastError = true)]
+      public static extern bool ClosePrinter(IntPtr hPrinter);
+      [DllImport("winspool.Drv", EntryPoint = "StartDocPrinterA", SetLastError = true, CharSet = CharSet.Ansi)]
+      public static extern bool StartDocPrinter(IntPtr hPrinter, int level, [In] DOCINFOA di);
+      [DllImport("winspool.Drv", EntryPoint = "EndDocPrinter", SetLastError = true)]
+      public static extern bool EndDocPrinter(IntPtr hPrinter);
+      [DllImport("winspool.Drv", EntryPoint = "StartPagePrinter", SetLastError = true)]
+      public static extern bool StartPagePrinter(IntPtr hPrinter);
+      [DllImport("winspool.Drv", EntryPoint = "EndPagePrinter", SetLastError = true)]
+      public static extern bool EndPagePrinter(IntPtr hPrinter);
+      [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true)]
+      public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
+      public static bool Send(string printer, byte[] data) {
+        IntPtr pData = Marshal.AllocCoTaskMem(data.Length);
+        Marshal.Copy(data, 0, pData, data.Length);
+        IntPtr hPrinter;
+        bool ok = false;
+        if (OpenPrinter(printer, out hPrinter, IntPtr.Zero)) {
+          DOCINFOA di = new DOCINFOA();
+          if (StartDocPrinter(hPrinter, 1, di)) {
+            if (StartPagePrinter(hPrinter)) {
+              int written = 0;
+              ok = WritePrinter(hPrinter, pData, data.Length, out written);
+              EndPagePrinter(hPrinter);
+            }
+            EndDocPrinter(hPrinter);
+          }
+          ClosePrinter(hPrinter);
+        }
+        Marshal.FreeCoTaskMem(pData);
+        return ok;
+      }
+    }
+"@
+    Add-Type -TypeDefinition $source -Language CSharp
+    $ok = [DirectSpooler]::Send("${printerName}", $bytes)
+    if (-not $ok) { exit 1 }
+    Write-Output "SUCCESS"
   `;
 
   return new Promise((resolve, reject) => {
     execFile('powershell', ['-NoProfile', '-Command', psScript], (error, stdout, stderr) => {
       if (error) {
-        return reject(new Error(`Gagal mencetak lewat PowerShell ke ${printerName}: ${stderr || error.message}`));
+        return reject(
+          new Error(
+            `Gagal mencetak ke printer '${printerName}': ${stderr || error.message}. Pastikan printer menyala dan kabel USB terhubung.`
+          )
+        );
       }
       resolve({ success: true, message: stdout.trim() });
     });
