@@ -70,9 +70,9 @@ function VirtualKeyboard({ mode, onKey, onModeChange, onNext }: {
   const [isShift, setIsShift] = useState(false);
 
   const letterRows = [
-    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'backspace'],
+    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
     ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-    ['shift', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.'],
+    ['shift', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'backspace'],
   ];
   const numberRows = [
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'backspace'],

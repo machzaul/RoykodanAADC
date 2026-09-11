@@ -72,10 +72,10 @@ button { -webkit-tap-highlight-color:transparent; }
 .keyboard-rows { display:flex; flex-direction:column; gap:1.15cqw; flex:1; }
 .keyboard-row { display:grid; gap:1.12cqw; height:7.75cqw; }
 .keyboard-mode-letters .row-1 { grid-template-columns:repeat(10,minmax(0,1fr)); }
-.keyboard-mode-letters .row-2 { grid-template-columns:repeat(9,minmax(0,1fr)); }
+.keyboard-mode-letters .row-2 { grid-template-columns:repeat(9,minmax(0,1fr)); padding:0 4.8%; }
 .keyboard-mode-letters .row-3 { grid-template-columns:repeat(11,minmax(0,1fr)); }
 .keyboard-mode-letters .row-3 .keyboard-key:first-child { grid-column:span 2; }
-.keyboard-mode-letters .row-3 .keyboard-key:not(:first-child) { grid-column:span 1; }
+.keyboard-mode-letters .row-3 .keyboard-key:last-child { grid-column:span 2; }
 
 .keyboard-mode-numbers .row-1 { grid-template-columns:repeat(11,minmax(0,1fr)); }
 .keyboard-mode-numbers .row-2 { grid-template-columns:repeat(11,minmax(0,1fr)); }
